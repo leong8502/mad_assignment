@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
-import 'master_page.dart';
 
-class DashboardScreen extends StatelessWidget { // Changed to StatelessWidget since state is now in MasterPage
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MasterPage(
-      body: Padding(
+    return SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TextField(decoration: InputDecoration(hintText: 'Search...', prefixIcon: Icon(Icons.search))),
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(80.0), // Circular border
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(80.0), // Consistent when enabled
+                  borderSide: const BorderSide(color: Colors.grey),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(80.0), // Consistent when focused
+                  borderSide: const BorderSide(color: Colors.indigoAccent), // Match theme
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
-            const Text('Today', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Expanded(
+            const Text(
+              'Today',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6, // Constrain ListView height
               child: ListView(
                 children: const [
                   ListTile(

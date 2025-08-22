@@ -12,66 +12,94 @@ class LoginScreen extends StatelessWidget {
           Positioned(
             top: 50.0,
             left: 16.0,
-            child: Image.asset('assets/logo.png', height: 120),
+            child: Image.asset('assets/logo.png', height: 80),
           ),
-          // Centered sign-in box
+          // Centered sign-in box with "Sign In" text
           Center(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 60.0, 16.0, 16.0), // Added top padding of 100.0
-              child: Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, // Minimize height to fit content
-                  crossAxisAlignment: CrossAxisAlignment.start, // Align labels to the left
-                  children: [
-                    const Text('Work ID', style: TextStyle(fontSize: 16)),
-                    const SizedBox(height: 10),
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Enter your work ID...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+              padding: const EdgeInsets.fromLTRB(16.0, 40.0, 16.0, 16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // Minimize height to fit content
+                children: [
+                  const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 15),
-                    const Text('Password', style: TextStyle(fontSize: 16)),
-                    const SizedBox(height: 10),
-                    TextField(
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: 'Enter your password...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 20),
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(200, 50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Work ID', style: TextStyle(fontSize: 16)),
+                        const SizedBox(height: 10),
+                        TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Enter your work ID...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
-                        child: const Text('Sign In'),
-                      ),
+                        const SizedBox(height: 15),
+                        const Text('Password', style: TextStyle(fontSize: 16)),
+                        const SizedBox(height: 10),
+                        TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: 'Enter your password...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Center(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(200, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+                            child: const Text('Sign In'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: () {},
+                              child: const Text(
+                                'Forgot password?',
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pushNamed(context, '/register'),
+                              child: const Text(
+                                "Register?",
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text('Forgot password?', style: TextStyle(color: Colors.blue)),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
