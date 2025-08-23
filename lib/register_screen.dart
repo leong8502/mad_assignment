@@ -129,7 +129,7 @@ class RegisterScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
                         child: const Text('Sign Up'),
                       ),
                     ),

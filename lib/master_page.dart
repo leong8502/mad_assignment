@@ -1,17 +1,39 @@
 import 'package:flutter/material.dart';
+import '/dashboard_screen.dart';
+import '/schedule_screen.dart';
+import '/inbox_screen.dart';
+import '/worklist_screen.dart';
 
 class MasterPage extends StatefulWidget {
-  final Widget body;
-  final String title; // Dynamic title for the current screen
-
-  const MasterPage({super.key, required this.body, required this.title});
+  const MasterPage({super.key});
 
   @override
   State<MasterPage> createState() => _MasterPageState();
 }
 
 class _MasterPageState extends State<MasterPage> {
-  int _selectedIndex = 0; // Track the selected index for navigation
+  int _selectedIndex = 0;
+
+  // List of screens and titles
+  final List<Widget> _screens = const [
+    DashboardScreen(),
+    ScheduleScreen(),
+    InboxScreen(),
+    WorklistScreen(),
+  ];
+
+  final List<String> _titles = const [
+    'Dashboard',
+    'Schedule',
+    'Inbox',
+    'Work List',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // No need to set index based on route since we're not using routes
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +54,7 @@ class _MasterPageState extends State<MasterPage> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: Text(widget.title),
+          title: Text(_titles[_selectedIndex]), // Dynamic title
           centerTitle: true,
           actions: [
             IconButton(
@@ -74,7 +96,7 @@ class _MasterPageState extends State<MasterPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           CircleAvatar(
-                            radius: 100, // Larger size for the dialog
+                            radius: 100,
                             backgroundImage: const AssetImage('assets/profile.png'),
                             backgroundColor: Colors.grey,
                           ),
@@ -111,7 +133,7 @@ class _MasterPageState extends State<MasterPage> {
                     image: const AssetImage('assets/drawer.png'),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      Colors.black.withOpacity(0.3), // Darken the image
+                      Colors.black.withOpacity(0.3),
                       BlendMode.darken,
                     ),
                   ),
@@ -147,7 +169,6 @@ class _MasterPageState extends State<MasterPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Profile image with plus icon
                                 Center(
                                   child: Stack(
                                     alignment: Alignment.bottomRight,
@@ -161,7 +182,6 @@ class _MasterPageState extends State<MasterPage> {
                                       ),
                                       GestureDetector(
                                         onTap: () {
-                                          // Add your image upload logic here
                                           print('Upload new profile image');
                                         },
                                         child: Container(
@@ -181,7 +201,6 @@ class _MasterPageState extends State<MasterPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                // Full Name
                                 const Text(
                                   'Full name',
                                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -200,7 +219,6 @@ class _MasterPageState extends State<MasterPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                // Email
                                 const Text(
                                   'Email',
                                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -221,7 +239,6 @@ class _MasterPageState extends State<MasterPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                // Job Type (non-editable)
                                 const Text(
                                   'Job Type',
                                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -231,7 +248,7 @@ class _MasterPageState extends State<MasterPage> {
                                   controller: TextEditingController(
                                     text: 'Developer',
                                   ),
-                                  enabled: false, // Makes the field non-editable
+                                  enabled: false,
                                   decoration: InputDecoration(
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
@@ -295,7 +312,7 @@ class _MasterPageState extends State<MasterPage> {
         ),
         body: Column(
           children: [
-            Expanded(child: widget.body),
+            Expanded(child: _screens[_selectedIndex]), // Dynamic content
             Container(height: 1, color: Colors.grey[300]),
           ],
         ),
@@ -327,23 +344,10 @@ class _MasterPageState extends State<MasterPage> {
           child: BottomNavigationBar(
             currentIndex: _selectedIndex,
             onTap: (index) {
+              if (index == _selectedIndex) return; // Avoid redundant updates
               setState(() {
-                _selectedIndex = index;
+                _selectedIndex = index; // Update index to switch content
               });
-              switch (index) {
-                case 0:
-                  Navigator.pushNamed(context, '/dashboard');
-                  break;
-                case 1:
-                // Navigate to Schedule
-                  break;
-                case 2:
-                // Navigate to Inbox
-                  break;
-                case 3:
-                // Navigate to Work List
-                  break;
-              }
             },
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
