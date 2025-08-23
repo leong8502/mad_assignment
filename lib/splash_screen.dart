@@ -10,7 +10,7 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo.png', height: 175), // Replace with your logo asset
+            Image.asset('assets/images/logo.png', height: 175), // Replace with your logo asset
             const Text(
               'GREENSTEM MECHANICS',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
