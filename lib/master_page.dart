@@ -295,6 +295,7 @@ class _MasterPageState extends State<MasterPage> {
               ListTile(
                 leading: const Icon(Icons.help),
                 title: const Text('Help & resources'),
+                onTap: () {},
               ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
