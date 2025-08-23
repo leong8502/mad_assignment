@@ -97,7 +97,7 @@ class _MasterPageState extends State<MasterPage> {
                         children: [
                           CircleAvatar(
                             radius: 100,
-                            backgroundImage: const AssetImage('assets/profile.png'),
+                            backgroundImage: const AssetImage('assets/images/profile.png'),
                             backgroundColor: Colors.grey,
                           ),
                           const SizedBox(height: 16),
@@ -116,7 +116,7 @@ class _MasterPageState extends State<MasterPage> {
                 },
                 child: const CircleAvatar(
                   radius: 15,
-                  backgroundImage: AssetImage('assets/profile.png'),
+                  backgroundImage: AssetImage('assets/images/profile.png'),
                   backgroundColor: Colors.grey,
                 ),
               ),
@@ -130,7 +130,7 @@ class _MasterPageState extends State<MasterPage> {
               DrawerHeader(
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: const AssetImage('assets/drawer.png'),
+                    image: const AssetImage('assets/images/drawer.png'),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
                       Colors.black.withOpacity(0.3),
@@ -176,7 +176,7 @@ class _MasterPageState extends State<MasterPage> {
                                       CircleAvatar(
                                         radius: 40,
                                         backgroundImage: const AssetImage(
-                                          'assets/profile.png',
+                                          'assets/images/profile.png',
                                         ),
                                         backgroundColor: Colors.grey,
                                       ),
