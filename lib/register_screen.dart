@@ -249,9 +249,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 'Select Job Type', child: Text('Select Job Type')),
-                        DropdownMenuItem(value: 'Developer', child: Text('Developer')),
-                        DropdownMenuItem(value: 'Designer', child: Text('Designer')),
-                        DropdownMenuItem(value: 'Manager', child: Text('Manager')),
+                        DropdownMenuItem(value: 'Workshop Mechanic', child: Text('Developer')),
+                        DropdownMenuItem(value: 'Service Advisor', child: Text('Designer')),
+                        DropdownMenuItem(value: 'Workshop Supervisor / Foreman', child: Text('Manager')),
                       ],
                       onChanged: (value) {
                         setState(() {

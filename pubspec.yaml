@@ -38,7 +38,11 @@ dependencies:
   cloud_firestore: ^6.0.0
   firebase_auth: ^6.0.1
   firebase_storage: ^13.0.0
-  image_picker: ^1.1.2
+  image_picker: ^1.2.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.3
+  permission_handler: ^12.0.1
+
 
 dev_dependencies:
   flutter_test:
@@ -63,3 +67,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/sounds/
