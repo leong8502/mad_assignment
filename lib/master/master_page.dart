@@ -6,9 +6,9 @@ import '/dashboard_screen.dart';
 import '/schedule_screen.dart';
 import '/inbox_screen.dart';
 import '/worklist_screen.dart';
-import '/notification_settings_screen.dart';
-import '/edit_profile_screen.dart';
-import '/reset_password_screen.dart';
+import 'package:mad_assignment/user/notification_settings_screen.dart';
+import 'package:mad_assignment/user/edit_profile_screen.dart';
+import 'package:mad_assignment/user/reset_password_screen.dart';
 
 class MasterPage extends StatefulWidget {
   const MasterPage({super.key});

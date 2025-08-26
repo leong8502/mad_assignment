@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '/master_page.dart';
+import 'master/master_page.dart';
 import '/splash_screen.dart';
-import '/login_screen.dart';
-import '/register_screen.dart';
+import 'user/login_screen.dart';
+import 'user/register_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 

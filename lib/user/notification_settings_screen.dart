@@ -139,9 +139,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 isExpanded: true,
                 items: const [
                   DropdownMenuItem(value: 'default', child: Text('Default')),
-                  DropdownMenuItem(value: 'chime', child: Text('Chime')),
-                  DropdownMenuItem(value: 'bell', child: Text('Bell')),
-                  DropdownMenuItem(value: 'alert', child: Text('Alert')),
+                  DropdownMenuItem(value: 'sound1', child: Text('Chime')),
+                  DropdownMenuItem(value: 'sound2', child: Text('Bell')),
+                  DropdownMenuItem(value: 'sound3', child: Text('Alert')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
