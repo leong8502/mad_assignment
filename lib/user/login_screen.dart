@@ -14,27 +14,48 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _emailError;
   String? _passwordError;
   String? _generalError;
+  bool _obscurePassword = true; // State variable for password visibility
+  bool _isLoading = false; // State variable for loading animation
 
   Future<void> _login() async {
     setState(() {
       _emailError = null;
       _passwordError = null;
       _generalError = null;
+      _isLoading = true; // Show loading animation (if used in UI later)
     });
 
-    // Validate inputs
+    // Validate inputs FIRST
     if (_emailController.text.trim().isEmpty) {
       setState(() {
         _emailError = 'Email cannot be empty';
+        _isLoading = false; // Reset if validation fails
       });
       return;
     }
     if (_passwordController.text.trim().isEmpty) {
       setState(() {
         _passwordError = 'Password cannot be empty';
+        _isLoading = false; // Reset if validation fails
       });
       return;
     }
+
+    // Show loading dialog AFTER validation
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Logging in...'),
+          ],
+        ),
+      ),
+    );
 
     try {
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -42,17 +63,32 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
 
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
       if (!userCredential.user!.emailVerified) {
         setState(() {
           _generalError = 'Please verify your email before logging in.';
+          _isLoading = false; // Hide loading animation
         });
         await FirebaseAuth.instance.signOut();
         return;
       }
 
+      setState(() {
+        _isLoading = false; // Hide loading animation
+      });
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
       setState(() {
+        _isLoading = false; // Hide loading animation
         switch (e.code) {
           case 'invalid-email':
             _emailError = 'The email address is badly formatted.';
@@ -106,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 if (resetEmailController.text.trim().isEmpty) {
                   setDialogState(() {
-                    dialogErrorMessage = 'Please enter an email to reset password.';
+                    dialogErrorMessage = 'Please enter an valid email.';
                   });
                   return;
                 }
@@ -189,13 +225,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 10),
                           TextField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               hintText: 'Enter your password...',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               errorText: _passwordError,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                             ),
                           ),
                           if (_generalError != null)

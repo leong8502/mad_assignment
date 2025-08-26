@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '/dashboard_screen.dart';
 import '/schedule_screen.dart';
 import '/inbox_screen.dart';
@@ -9,6 +8,7 @@ import '/worklist_screen.dart';
 import 'package:mad_assignment/user/notification_settings_screen.dart';
 import 'package:mad_assignment/user/edit_profile_screen.dart';
 import 'package:mad_assignment/user/reset_password_screen.dart';
+import 'package:mad_assignment/user/info_screen.dart';
 
 class MasterPage extends StatefulWidget {
   const MasterPage({super.key});
@@ -31,47 +31,6 @@ class _MasterPageState extends State<MasterPage> {
     'Inbox',
     'Work List',
   ];
-
-  Future<void> _saveNotificationPreferences({
-    required bool muted,
-    required int muteDuration,
-    required bool vibration,
-    required String sound,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final user = FirebaseAuth.instance.currentUser;
-    await prefs.setBool('notificationsMuted', muted);
-    await prefs.setInt('muteDuration', muteDuration);
-    await prefs.setBool('vibrationEnabled', vibration);
-    await prefs.setString('notificationSound', sound);
-
-    if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {
-          'notificationsMuted': muted,
-          'muteDuration': muteDuration,
-          'vibrationEnabled': vibration,
-          'notificationSound': sound,
-        },
-        SetOptions(merge: true),
-      );
-    }
-  }
-
-  Future<void> _muteNotifications(int durationInHours) async {
-    final muteUntil = DateTime.now().add(Duration(hours: durationInHours));
-    await _saveNotificationPreferences(
-      muted: true,
-      muteDuration: muteUntil.millisecondsSinceEpoch,
-      vibration: await SharedPreferences.getInstance().then((prefs) =>
-      prefs.getBool('vibrationEnabled') ?? true),
-      sound: await SharedPreferences.getInstance().then((prefs) =>
-      prefs.getString('notificationSound') ?? 'default'),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Notifications muted for $durationInHours hours')),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,39 +61,31 @@ class _MasterPageState extends State<MasterPage> {
               onPressed: () {
                 showDialog(
                   context: context,
-                  builder: (context) =>
-                      AlertDialog(
-                        title: const Text('Notifications'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.volume_off),
-                              title: const Text('Mute notifications'),
-                              onTap: () async {
-                                Navigator.pop(context);
-                                await _muteNotifications(1);
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.notifications),
-                              title: const Text('Notification settings'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        NotificationSettingsScreen(
-                                          onSave: _saveNotificationPreferences,
-                                        ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                  builder: (context) => AlertDialog(
+                    title: const Text('Notifications'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.volume_off),
+                          title: const Text('Mute notifications'),
                         ),
-                      ),
+                        ListTile(
+                          leading: const Icon(Icons.notifications),
+                          title: const Text('Notification settings'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const NotificationSettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
@@ -144,35 +95,33 @@ class _MasterPageState extends State<MasterPage> {
                 onTap: () {
                   showDialog(
                     context: context,
-                    builder: (context) =>
-                        AlertDialog(
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          contentPadding: EdgeInsets.zero,
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 100,
-                                backgroundImage: user?.photoURL != null
-                                    ? NetworkImage(user!.photoURL!)
-                                    : const AssetImage(
-                                    'assets/images/profile.png'),
-                                backgroundColor: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                                onPressed: () => Navigator.pop(context),
-                              ),
-                            ],
+                    builder: (context) => AlertDialog(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      contentPadding: EdgeInsets.zero,
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 100,
+                            backgroundImage: user?.photoURL != null
+                                ? NetworkImage(user!.photoURL!)
+                                : const AssetImage('assets/images/profile.png'),
+                            backgroundColor: Colors.grey,
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
                 child: CircleAvatar(
@@ -187,106 +136,103 @@ class _MasterPageState extends State<MasterPage> {
           ],
         ),
         drawer: Drawer(
-          child: StreamBuilder<DocumentSnapshot>(
-            stream: user != null
-                ? FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .snapshots()
-                : null,
-            builder: (context, snapshot) {
-              String displayName = 'Guest';
-              if (snapshot.hasData && snapshot.data!.exists) {
-                displayName =
-                    snapshot.data!['username'] ?? user?.email ?? 'Guest';
-              }
-              return ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  DrawerHeader(
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: const AssetImage('assets/images/drawer.png'),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.3),
-                          BlendMode.darken,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      displayName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: const AssetImage('assets/images/drawer.png'),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.3),
+                      BlendMode.darken,
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.person),
-                    title: const Text('Edit Profile'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EditProfileScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.lock),
-                    title: const Text('Reset Password'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ResetPasswordScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.settings),
-                    title: const Text('Settings'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              NotificationSettingsScreen(
-                                onSave: _saveNotificationPreferences,
-                              ),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.help),
-                    title: const Text('Help & resources'),
-                    onTap: () {},
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text(
-                      'Logout',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 80.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.settings,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Settings',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Edit Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('Reset Password'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResetPasswordScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.info),
+                title: const Text('About this app'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const InfoScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              );
-            },
+                ),
+                onTap: () async {
+                  await FirebaseAuth.instance.signOut();
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
+              ),
+            ],
           ),
         ),
         body: Column(
@@ -303,12 +249,21 @@ class _MasterPageState extends State<MasterPage> {
               selectedItemColor: Colors.indigoAccent,
               unselectedItemColor: Colors.grey,
               selectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 14),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
               unselectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.normal, fontSize: 12),
+                fontWeight: FontWeight.normal,
+                fontSize: 12,
+              ),
               selectedIconTheme: IconThemeData(
-                  size: 28, color: Colors.indigoAccent),
-              unselectedIconTheme: IconThemeData(size: 24, color: Colors.grey),
+                size: 28,
+                color: Colors.indigoAccent,
+              ),
+              unselectedIconTheme: IconThemeData(
+                size: 24,
+                color: Colors.grey,
+              ),
               showSelectedLabels: true,
               showUnselectedLabels: true,
               type: BottomNavigationBarType.fixed,

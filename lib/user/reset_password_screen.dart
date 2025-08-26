@@ -9,6 +9,14 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final currentPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  String? currentPasswordError;
+  String? newPasswordError;
+  bool _isLoading = false; // State variable for loading animation
+  bool _obscureCurrentPassword = true; // State variable for current password visibility
+  bool _obscureNewPassword = true; // State variable for new password visibility
+
   Future<void> _resetPassword(String currentPassword, String newPassword) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -26,6 +34,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       await user.reauthenticateWithCredential(credential);
       await user.updatePassword(newPassword);
 
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
+      setState(() {
+        _isLoading = false; // Hide loading animation
+      });
+
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -40,6 +57,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         ),
       );
     } on FirebaseAuthException catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
       String errorMessage = 'Failed reset, please confirm current password is correct.';
       if (e.code == 'weak-password') {
         errorMessage = 'New password is too weak';
@@ -53,11 +75,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    String? currentPasswordError;
-    String? newPasswordError;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reset Password'),
@@ -73,6 +90,29 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             builder: (context, setDialogState) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Column(
+                    children: [
+                      const Icon(size: 60, Icons.lock),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Reset your password',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Enter your current password and new password to reset your password.',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 36),
+                    ],
+                  ),
+                ),
                 const Text(
                   'Current Password',
                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -80,7 +120,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: currentPasswordController,
-                  obscureText: true,
+                  obscureText: _obscureCurrentPassword,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -91,6 +131,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                     errorText: currentPasswordError,
                     errorStyle: const TextStyle(color: Colors.red),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureCurrentPassword = !_obscureCurrentPassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -101,7 +152,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: newPasswordController,
-                  obscureText: true,
+                  obscureText: _obscureNewPassword,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -112,6 +163,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                     errorText: newPasswordError,
                     errorStyle: const TextStyle(color: Colors.red),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureNewPassword = !_obscureNewPassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -178,9 +240,29 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           return;
                         }
 
+                        setDialogState(() {
+                          _isLoading = true; // Show loading animation
+                        });
+
+                        // Show loading dialog
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const AlertDialog(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('Resetting Password...'),
+                              ],
+                            ),
+                          ),
+                        );
+
                         try {
                           await _resetPassword(currentPassword, newPassword);
-                          Navigator.pop(context);
+                          Navigator.pop(context); // Close the main screen
                         } on FirebaseAuthException catch (e) {
                           setDialogState(() {
                             if (e.code == 'weak-password') {
@@ -190,6 +272,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             } else {
                               newPasswordError = 'Failed to reset. Please check your current password.';
                             }
+                            _isLoading = false; // Hide loading animation
                           });
                         }
                       },

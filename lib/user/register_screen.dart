@@ -11,45 +11,58 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _workIdController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   String? _selectedJobType = 'Select Job Type';
   String? _usernameError;
-  String? _workIdError;
   String? _emailError;
   String? _passwordError;
   String? _confirmPasswordError;
   String? _jobTypeError;
   String? _generalError;
+  bool _obscurePassword = true; // State variable for password visibility
+  bool _obscureConfirmPassword = true; // State variable for confirm password visibility
+  bool _isLoading = false; // State variable for loading animation
 
   bool _isValidEmail(String email) {
     final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     return regex.hasMatch(email);
   }
 
+  Future<String> _generateWorkId() async {
+    final usersCollection = FirebaseFirestore.instance.collection('users');
+    final querySnapshot = await usersCollection
+        .orderBy('workId', descending: true)
+        .limit(1)
+        .get();
+
+    String newWorkId = 'WM001'; // Default first work ID
+    if (querySnapshot.docs.isNotEmpty) {
+      final lastWorkId = querySnapshot.docs.first['workId'] as String?;
+      if (lastWorkId != null && lastWorkId.startsWith('WM')) {
+        final number = int.tryParse(lastWorkId.substring(2)) ?? 0;
+        newWorkId = 'WM${(number + 1).toString().padLeft(3, '0')}';
+      }
+    }
+    return newWorkId;
+  }
+
   Future<void> _register() async {
     setState(() {
       _usernameError = null;
-      _workIdError = null;
       _emailError = null;
       _passwordError = null;
       _confirmPasswordError = null;
       _jobTypeError = null;
       _generalError = null;
+      _isLoading = true; // Show loading animation
     });
 
     // Validate inputs
     if (_usernameController.text.trim().isEmpty) {
       setState(() {
         _usernameError = 'Username cannot be empty';
-      });
-      return;
-    }
-    if (_workIdController.text.trim().isEmpty) {
-      setState(() {
-        _workIdError = 'Work ID cannot be empty';
       });
       return;
     }
@@ -84,29 +97,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Registering...'),
+          ],
+        ),
+      ),
+    );
+
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
+      final workId = await _generateWorkId();
+
       await userCredential.user?.sendEmailVerification();
 
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'username': _usernameController.text.trim(),
-        'workId': _workIdController.text.trim(),
         'email': _emailController.text.trim(),
         'jobType': _selectedJobType,
+        'workId': workId,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification email sent. Please check your inbox.')),
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
+      setState(() {
+        _isLoading = false; // Hide loading animation
+      });
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Registration Successful'),
+          content: const Text('Verification email sent. Please check your inbox.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
 
       Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context); // Close the loading dialog
+      }
+
       setState(() {
+        _isLoading = false; // Hide loading animation
         switch (e.code) {
           case 'invalid-email':
             _emailError = 'The email address is badly formatted.';
@@ -177,20 +233,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 15),
-                    const Text('Work ID', style: TextStyle(fontSize: 16)),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _workIdController,
-                      decoration: InputDecoration(
-                        hintText: 'Enter your work ID...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        errorText: _workIdError,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
                     const Text('Email', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 10),
                     TextField(
@@ -210,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         hintText: 'Enter your password...',
                         border: OutlineInputBorder(
@@ -218,6 +260,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         errorText: _passwordError,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -225,7 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _confirmPasswordController,
-                      obscureText: true,
+                      obscureText: _obscureConfirmPassword,
                       decoration: InputDecoration(
                         hintText: 'Enter your password again...',
                         border: OutlineInputBorder(
@@ -233,6 +286,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         errorText: _confirmPasswordError,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -249,9 +313,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 'Select Job Type', child: Text('Select Job Type')),
-                        DropdownMenuItem(value: 'Workshop Mechanic', child: Text('Developer')),
-                        DropdownMenuItem(value: 'Service Advisor', child: Text('Designer')),
-                        DropdownMenuItem(value: 'Workshop Supervisor / Foreman', child: Text('Manager')),
+                        DropdownMenuItem(value: 'Workshop Mechanic', child: Text('Workshop Mechanic')),
+                        DropdownMenuItem(value: 'Service Advisor', child: Text('Service Advisor')),
+                        DropdownMenuItem(value: 'Workshop Supervisor / Foreman', child: Text('Workshop Supervisor / Foreman')),
                       ],
                       onChanged: (value) {
                         setState(() {
