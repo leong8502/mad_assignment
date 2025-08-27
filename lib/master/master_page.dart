@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mad_assignment/user/reset_email_screen.dart';
 import '/dashboard_screen.dart';
 import '/schedule_screen.dart';
 import '/inbox_screen.dart';
@@ -9,6 +10,8 @@ import 'package:mad_assignment/user/notification_settings_screen.dart';
 import 'package:mad_assignment/user/edit_profile_screen.dart';
 import 'package:mad_assignment/user/reset_password_screen.dart';
 import 'package:mad_assignment/user/info_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 class MasterPage extends StatefulWidget {
   const MasterPage({super.key});
@@ -31,6 +34,20 @@ class _MasterPageState extends State<MasterPage> {
     'Inbox',
     'Work List',
   ];
+  String? _localImagePath; // Store the local image path
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImagePath(); // Load saved image path on init
+  }
+
+  Future<void> _loadImagePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _localImagePath = prefs.getString('profileImagePath');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,9 +122,11 @@ class _MasterPageState extends State<MasterPage> {
                         children: [
                           CircleAvatar(
                             radius: 100,
-                            backgroundImage: user?.photoURL != null
-                                ? NetworkImage(user!.photoURL!)
-                                : const AssetImage('assets/images/profile.png'),
+                            backgroundImage: _localImagePath != null
+                                ? FileImage(File(_localImagePath!)) as ImageProvider
+                                : (user?.photoURL != null
+                                ? NetworkImage(user!.photoURL!) as ImageProvider
+                                : const AssetImage('assets/images/profile.png') as ImageProvider),
                             backgroundColor: Colors.grey,
                           ),
                           const SizedBox(height: 16),
@@ -126,9 +145,11 @@ class _MasterPageState extends State<MasterPage> {
                 },
                 child: CircleAvatar(
                   radius: 15,
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : const AssetImage('assets/images/profile.png'),
+                  backgroundImage: _localImagePath != null
+                      ? FileImage(File(_localImagePath!)) as ImageProvider
+                      : (user?.photoURL != null
+                      ? NetworkImage(user!.photoURL!) as ImageProvider
+                      : const AssetImage('assets/images/profile.png') as ImageProvider),
                   backgroundColor: Colors.grey,
                 ),
               ),
@@ -201,6 +222,19 @@ class _MasterPageState extends State<MasterPage> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ResetPasswordScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.email),
+                title: const Text('Change Email'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResetEmailScreen(),
                     ),
                   );
                 },
@@ -281,7 +315,7 @@ class _MasterPageState extends State<MasterPage> {
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(
                   icon: Icon(Icons.calendar_today), label: 'Schedule'),
-              BottomNavigationBarItem(icon: Icon(Icons.email), label: 'Inbox'),
+              BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Inbox'),
               BottomNavigationBarItem(
                   icon: Icon(Icons.check_circle_rounded), label: 'Work List'),
             ],

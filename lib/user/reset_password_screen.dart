@@ -122,6 +122,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   controller: currentPasswordController,
                   obscureText: _obscureCurrentPassword,
                   decoration: InputDecoration(
+                    hintText: 'Enter your current password...', // Added placeholder
+                    prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -154,6 +156,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   controller: newPasswordController,
                   obscureText: _obscureNewPassword,
                   decoration: InputDecoration(
+                    hintText: 'Enter your new password...', // Added placeholder
+                    prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

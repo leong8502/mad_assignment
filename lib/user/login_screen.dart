@@ -213,7 +213,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: _emailController,
                             decoration: InputDecoration(
-                              hintText: 'Enter your email...',
+                              hintText: 'Enter your email...', // Already present as placeholder
+                              prefixIcon: const Icon(Icons.email, color: Colors.grey), // Added prefix icon
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -228,7 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             decoration: InputDecoration(
-                              hintText: 'Enter your password...',
+                              hintText: 'Enter your password...', // Already present as placeholder
+                              prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),

@@ -224,7 +224,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextField(
                       controller: _usernameController,
                       decoration: InputDecoration(
-                        hintText: 'Enter your username...',
+                        hintText: 'Enter your username...', // Already present as placeholder
+                        prefixIcon: const Icon(Icons.person, color: Colors.grey), // Added prefix icon
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -238,7 +239,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextField(
                       controller: _emailController,
                       decoration: InputDecoration(
-                        hintText: 'Enter your email...',
+                        hintText: 'Enter your email...', // Already present as placeholder
+                        prefixIcon: const Icon(Icons.email, color: Colors.grey), // Added prefix icon
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -254,7 +256,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        hintText: 'Enter your password...',
+                        hintText: 'Enter your password...', // Already present as placeholder
+                        prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -280,7 +283,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       decoration: InputDecoration(
-                        hintText: 'Enter your password again...',
+                        hintText: 'Enter your password again...', // Already present as placeholder
+                        prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

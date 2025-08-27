@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -13,88 +14,76 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  bool _isUploading = false;
+  String? _localImagePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImagePath(); // Load saved image path on init
+  }
+
+  Future<void> _loadImagePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _localImagePath = prefs.getString('profileImagePath');
+    });
+  }
+
+  Future<void> _saveImagePath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null) {
+      await prefs.remove('profileImagePath');
+    } else {
+      await prefs.setString('profileImagePath', path);
+    }
+  }
+
   Future<void> _uploadProfileImage() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No image selected')),
-      );
-      return;
-    }
-
-    final imageFile = File(image.path);
-    if (!await imageFile.exists()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected image file does not exist')),
-      );
-      return;
-    }
+    setState(() {
+      _isUploading = true;
+    });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No user signed in')),
-        );
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) {
+        _showSnackBar('No image selected');
         return;
       }
 
-      await user.getIdToken();
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images')
-          .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-      final uploadTask = storageRef.putFile(imageFile);
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload progress: ${progress.toStringAsFixed(1)}%')),
-        );
-      });
-
-      final snapshot = await uploadTask;
-      if (snapshot.state == TaskState.success) {
-        await Future.delayed(const Duration(seconds: 3));
-
-        String? photoURL;
-        for (int attempt = 1; attempt <= 7; attempt++) {
-          try {
-            photoURL = await storageRef.getDownloadURL();
-            break;
-          } catch (e) {
-            if (attempt == 7) {
-              throw Exception('Failed to retrieve download URL after $attempt attempts: $e');
-            }
-            await Future.delayed(const Duration(seconds: 3));
-          }
-        }
-
-        await user.updatePhotoURL(photoURL);
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-          {'photoURL': photoURL},
-          SetOptions(merge: true),
-        );
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile image updated successfully')),
-        );
-
-        setState(() {});
-      } else {
-        throw Exception('Upload failed: ${snapshot.state}');
+      final imageFile = File(image.path);
+      if (!await imageFile.exists()) {
+        _showSnackBar('Selected image file does not exist. Check permissions.');
+        return;
       }
-    } on FirebaseException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload image: ${e.message}')),
-      );
+
+      // Use documents directory for persistent storage
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final localFile = await imageFile.copy('${directory.path}/$fileName');
+
+      setState(() {
+        _localImagePath = localFile.path;
+      });
+      await _saveImagePath(_localImagePath); // Save to preferences
+
+      _showSnackBar('Profile image saved locally');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload image: $e')),
-      );
+      _showSnackBar('Failed to save image: $e');
+      print('Error: $e');
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
     }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -117,20 +106,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ? FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots()
                 : null,
             builder: (context, snapshot) {
-              String fullName = 'John';
-              String email = user?.email ?? 'John@gmail.com';
-              String jobType = 'Developer';
+              String fullName = '-';
+              String email = user?.email ?? '-@gmail.com';
+              String jobType = '-';
               String workId = 'N/A';
               if (snapshot.hasData && snapshot.data!.exists) {
-                fullName = snapshot.data!['username'] ?? fullName;
-                email = snapshot.data!['email'] ?? email;
-                jobType = snapshot.data!['jobType'] ?? jobType;
-                workId = snapshot.data!['workId'] ?? workId;
+                final data = snapshot.data!.data() as Map<String, dynamic>?;
+                fullName = data?['username'] ?? fullName;
+                email = data?['email'] ?? email;
+                jobType = data?['jobType'] ?? jobType;
+                workId = data?['workId'] ?? workId;
               }
               final fullNameController = TextEditingController(text: fullName);
               final emailController = TextEditingController(text: email);
               final jobTypeController = TextEditingController(text: jobType);
               final workIdController = TextEditingController(text: workId);
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -140,20 +131,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundImage: user?.photoURL != null
-                              ? NetworkImage(user!.photoURL!)
-                              : const AssetImage('assets/images/profile.png'),
+                          backgroundImage: _localImagePath != null
+                              ? FileImage(File(_localImagePath!)) as ImageProvider
+                              : const AssetImage('assets/images/profile.png') as ImageProvider,
                           backgroundColor: Colors.grey,
                         ),
                         GestureDetector(
-                          onTap: _uploadProfileImage,
+                          onTap: _isUploading ? null : _uploadProfileImage,
                           child: Container(
                             decoration: const BoxDecoration(
                               color: Colors.blue,
                               shape: BoxShape.circle,
                             ),
                             padding: const EdgeInsets.all(4),
-                            child: const Icon(
+                            child: _isUploading
+                                ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                                : const Icon(
                               Icons.add,
                               color: Colors.white,
                               size: 20,
@@ -172,6 +172,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   TextField(
                     controller: fullNameController,
                     decoration: InputDecoration(
+                      hintText: 'Enter your full name...',
+                      prefixIcon: const Icon(Icons.person, color: Colors.grey),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -191,6 +193,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     controller: workIdController,
                     enabled: false,
                     decoration: InputDecoration(
+                      hintText: 'Your work ID...',
+                      prefixIcon: const Icon(Icons.badge, color: Colors.grey),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -210,6 +214,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     controller: emailController,
                     enabled: false,
                     decoration: InputDecoration(
+                      hintText: 'Enter your email...',
+                      prefixIcon: const Icon(Icons.email, color: Colors.grey),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -229,6 +235,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     controller: jobTypeController,
                     enabled: false,
                     decoration: InputDecoration(
+                      hintText: 'Your job type...',
+                      prefixIcon: const Icon(Icons.work, color: Colors.grey),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -263,6 +271,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               'jobType': jobTypeController.text.trim(),
                               'workId': workIdController.text.trim(),
                             }, SetOptions(merge: true));
+                            _showSnackBar('Profile updated successfully');
                           }
                           Navigator.pop(context);
                         },
