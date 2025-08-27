@@ -34,13 +34,13 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         soundPath = 'assets/sounds/sound0.mp3';
     }
     try {
-      print('Attempting to play sound: $soundPath');
+      //print('Attempting to play sound: $soundPath');
       await _audioPlayer.setAsset(soundPath);
       await _audioPlayer.play();
-      print('Sound played successfully');
+      //print('Sound played successfully');
     } catch (e, stackTrace) {
-      print('Error playing sound: $e');
-      print('Stack trace: $stackTrace');
+      //print('Error playing sound: $e');
+      //print('Stack trace: $stackTrace');
     }
   }
 

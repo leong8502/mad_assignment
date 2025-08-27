@@ -22,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailError = null;
       _passwordError = null;
       _generalError = null;
-      _isLoading = true; // Show loading animation (if used in UI later)
+      _isLoading = true; // Show loading animation
     });
 
     // Validate inputs FIRST
@@ -93,11 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
           case 'invalid-email':
             _emailError = 'The email address is badly formatted.';
             break;
-          case 'user-not-found':
-            _emailError = 'No user found for that email.';
-            break;
-          case 'wrong-password':
-            _passwordError = 'Wrong password provided.';
+          case 'invalid-credential':
+            _generalError = 'Incorrect email or password.';
             break;
           default:
             _generalError = e.message ?? 'An error occurred during login';
@@ -142,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 if (resetEmailController.text.trim().isEmpty) {
                   setDialogState(() {
-                    dialogErrorMessage = 'Please enter an valid email.';
+                    dialogErrorMessage = 'Email cannot be empty.';
                   });
                   return;
                 }
@@ -153,7 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.pop(context, true);
                 } on FirebaseAuthException catch (e) {
                   setDialogState(() {
-                    dialogErrorMessage = e.message ?? 'An error occurred while sending reset email';
+                    if (e.code == 'invalid-email') {
+                      dialogErrorMessage = 'Please enter an valid email.';
+                    } else {
+                      dialogErrorMessage = e.message ?? 'An error occurred while sending reset email';
+                    }
                   });
                 }
               },
