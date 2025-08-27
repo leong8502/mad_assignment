@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mad_assignment/user/preferences_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,34 +15,32 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _emailError;
   String? _passwordError;
   String? _generalError;
-  bool _obscurePassword = true; // State variable for password visibility
-  bool _isLoading = false; // State variable for loading animation
+  bool _obscurePassword = true;
+  bool _isLoading = false;
 
   Future<void> _login() async {
     setState(() {
       _emailError = null;
       _passwordError = null;
       _generalError = null;
-      _isLoading = true; // Show loading animation
+      _isLoading = true;
     });
 
-    // Validate inputs FIRST
     if (_emailController.text.trim().isEmpty) {
       setState(() {
         _emailError = 'Email cannot be empty';
-        _isLoading = false; // Reset if validation fails
+        _isLoading = false;
       });
       return;
     }
     if (_passwordController.text.trim().isEmpty) {
       setState(() {
         _passwordError = 'Password cannot be empty';
-        _isLoading = false; // Reset if validation fails
+        _isLoading = false;
       });
       return;
     }
 
-    // Show loading dialog AFTER validation
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -63,32 +62,27 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
 
-      // Close loading dialog
-      if (mounted) {
-        Navigator.pop(context); // Close the loading dialog
-      }
+      Navigator.pop(context); // Close loading dialog
 
       if (!userCredential.user!.emailVerified) {
         setState(() {
           _generalError = 'Please verify your email before logging in.';
-          _isLoading = false; // Hide loading animation
+          _isLoading = false;
         });
         await FirebaseAuth.instance.signOut();
         return;
       }
 
+      await PreferencesHelper.setLoginStatus(true); // Save login status
       setState(() {
-        _isLoading = false; // Hide loading animation
+        _isLoading = false;
       });
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
-      // Close loading dialog
-      if (mounted) {
-        Navigator.pop(context); // Close the loading dialog
-      }
+      Navigator.pop(context); // Close loading dialog
 
       setState(() {
-        _isLoading = false; // Hide loading animation
+        _isLoading = false;
         switch (e.code) {
           case 'invalid-email':
             _emailError = 'The email address is badly formatted.';
@@ -105,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _resetPassword() async {
     final TextEditingController resetEmailController = TextEditingController();
-    String? dialogErrorMessage; // Local error message for the dialog
+    String? dialogErrorMessage;
 
     final bool? sent = await showDialog<bool>(
       context: context,
@@ -124,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  errorText: dialogErrorMessage, // Display error in dialog
+                  errorText: dialogErrorMessage,
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -151,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 } on FirebaseAuthException catch (e) {
                   setDialogState(() {
                     if (e.code == 'invalid-email') {
-                      dialogErrorMessage = 'Please enter an valid email.';
+                      dialogErrorMessage = 'Please enter a valid email.';
                     } else {
                       dialogErrorMessage = e.message ?? 'An error occurred while sending reset email';
                     }
@@ -186,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Image.asset('assets/images/logo.png', height: 80),
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 100.0), // Adjust for logo
+                padding: const EdgeInsets.only(top: 100.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -213,8 +207,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: _emailController,
                             decoration: InputDecoration(
-                              hintText: 'Enter your email...', // Already present as placeholder
-                              prefixIcon: const Icon(Icons.email, color: Colors.grey), // Added prefix icon
+                              hintText: 'Enter your email...',
+                              prefixIcon: const Icon(Icons.email, color: Colors.grey),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -229,8 +223,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             decoration: InputDecoration(
-                              hintText: 'Enter your password...', // Already present as placeholder
-                              prefixIcon: const Icon(Icons.lock, color: Colors.grey), // Added prefix icon
+                              hintText: 'Enter your password...',
+                              prefixIcon: const Icon(Icons.lock, color: Colors.grey),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),

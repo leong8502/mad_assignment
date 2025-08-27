@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mad_assignment/user/preferences_helper.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -24,18 +24,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _loadImagePath() async {
-    final prefs = await SharedPreferences.getInstance();
+    final imagePath = await PreferencesHelper.getProfileImagePath();
     setState(() {
-      _localImagePath = prefs.getString('profileImagePath');
+      _localImagePath = imagePath;
     });
   }
 
   Future<void> _saveImagePath(String? path) async {
-    final prefs = await SharedPreferences.getInstance();
     if (path == null) {
-      await prefs.remove('profileImagePath');
+      await PreferencesHelper.clearProfileImagePath();
     } else {
-      await prefs.setString('profileImagePath', path);
+      await PreferencesHelper.setProfileImagePath(path);
     }
   }
 
@@ -252,7 +251,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: const
+
+                        Text('Cancel'),
                       ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(

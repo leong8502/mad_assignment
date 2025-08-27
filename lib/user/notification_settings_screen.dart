@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:mad_assignment/user/preferences_helper.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -11,9 +12,35 @@ class NotificationSettingsScreen extends StatefulWidget {
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
   bool _isMuted = false;
   int _muteDuration = 0;
-  bool _vibrationEnabled = true;
+  bool _vibrationEnabled = false;
   String _selectedSound = 'default';
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final isMuted = await PreferencesHelper.getMuteStatus();
+    final muteDuration = await PreferencesHelper.getMuteDuration();
+    final vibrationEnabled = await PreferencesHelper.getVibrationEnabled();
+    final selectedSound = await PreferencesHelper.getNotificationSound();
+    setState(() {
+      _isMuted = isMuted;
+      _muteDuration = muteDuration;
+      _vibrationEnabled = vibrationEnabled;
+      _selectedSound = selectedSound;
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    await PreferencesHelper.setMuteStatus(_isMuted);
+    await PreferencesHelper.setMuteDuration(_muteDuration);
+    await PreferencesHelper.setVibrationEnabled(_vibrationEnabled);
+    await PreferencesHelper.setNotificationSound(_selectedSound);
+  }
 
   void _playNotificationSound() async {
     String soundPath;
@@ -34,13 +61,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         soundPath = 'assets/sounds/sound0.mp3';
     }
     try {
-      //print('Attempting to play sound: $soundPath');
       await _audioPlayer.setAsset(soundPath);
       await _audioPlayer.play();
-      //print('Sound played successfully');
     } catch (e, stackTrace) {
-      //print('Error playing sound: $e');
-      //print('Stack trace: $stackTrace');
+      // Handle error silently or log as needed
     }
   }
 
@@ -116,6 +140,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         hint: const Text('Select duration'),
                         isExpanded: true,
                         items: const [
+                          DropdownMenuItem(value: -1, child: Text('Forever', style: TextStyle(fontSize: 14))),
                           DropdownMenuItem(value: 1, child: Text('1 Hour', style: TextStyle(fontSize: 14))),
                           DropdownMenuItem(value: 4, child: Text('4 Hours', style: TextStyle(fontSize: 14))),
                           DropdownMenuItem(value: 8, child: Text('8 Hours', style: TextStyle(fontSize: 14))),
@@ -213,7 +238,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         foregroundColor: Colors.white,
                         minimumSize: const Size(80, 40),
                       ),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () async {
+                        await _savePreferences();
+                        Navigator.pop(context);
+                      },
                       child: const Text(
                         'Apply',
                         style: TextStyle(fontSize: 16),

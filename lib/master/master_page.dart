@@ -11,6 +11,7 @@ import 'package:mad_assignment/user/edit_profile_screen.dart';
 import 'package:mad_assignment/user/reset_password_screen.dart';
 import 'package:mad_assignment/user/info_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mad_assignment/user/preferences_helper.dart';
 import 'dart:io';
 
 class MasterPage extends StatefulWidget {
@@ -34,19 +35,39 @@ class _MasterPageState extends State<MasterPage> {
     'Inbox',
     'Work List',
   ];
-  String? _localImagePath; // Store the local image path
+  String? _localImagePath;
+  bool _isMuted = false;
 
   @override
   void initState() {
     super.initState();
-    _loadImagePath(); // Load saved image path on init
+    _loadPreferences();
   }
 
-  Future<void> _loadImagePath() async {
+  Future<void> _loadPreferences() async {
+    final isLoggedIn = await PreferencesHelper.getLoginStatus();
+    final isMuted = await PreferencesHelper.getMuteStatus();
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _localImagePath = prefs.getString('profileImagePath');
+      _isMuted = isMuted;
     });
+    // Sync login status with Firebase
+    if (isLoggedIn && FirebaseAuth.instance.currentUser == null) {
+      await PreferencesHelper.setLoginStatus(false);
+    }
+  }
+
+  Future<void> _toggleMuteNotifications() async {
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+    await PreferencesHelper.setMuteStatus(_isMuted);
+    if (_isMuted) {
+      await PreferencesHelper.setMuteDuration(-1); // Forever mute
+    } else {
+      await PreferencesHelper.setMuteDuration(0); // Reset duration
+    }
   }
 
   @override
@@ -74,7 +95,10 @@ class _MasterPageState extends State<MasterPage> {
           centerTitle: true,
           actions: [
             IconButton(
-              icon: const Icon(Icons.notifications, color: Colors.black),
+              icon: Icon(
+                _isMuted ? Icons.notifications_off : Icons.notifications,
+                color: Colors.black,
+              ),
               onPressed: () {
                 showDialog(
                   context: context,
@@ -84,20 +108,29 @@ class _MasterPageState extends State<MasterPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.volume_off),
-                          title: const Text('Mute notifications'),
+                          leading: Icon(
+                            _isMuted ? Icons.volume_off : Icons.volume_up,
+                          ),
+                          title: Text(
+                            _isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+                          ),
+                          onTap: () async {
+                            await _toggleMuteNotifications();
+                            Navigator.pop(context);
+                          },
                         ),
                         ListTile(
                           leading: const Icon(Icons.notifications),
-                          title: const Text('Notification settings'),
-                          onTap: () {
+                          title: const Text('Notification Settings'),
+                          onTap: () async {
                             Navigator.pop(context);
-                            Navigator.push(
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const NotificationSettingsScreen(),
                               ),
                             );
+                            await _loadPreferences(); // Refresh mute status after settings
                           },
                         ),
                       ],
@@ -122,7 +155,7 @@ class _MasterPageState extends State<MasterPage> {
                         children: [
                           CircleAvatar(
                             radius: 100,
-                            backgroundImage: _localImagePath != null
+                            backgroundImage: _localImagePath != null && File(_localImagePath!).existsSync()
                                 ? FileImage(File(_localImagePath!)) as ImageProvider
                                 : (user?.photoURL != null
                                 ? NetworkImage(user!.photoURL!) as ImageProvider
@@ -145,7 +178,7 @@ class _MasterPageState extends State<MasterPage> {
                 },
                 child: CircleAvatar(
                   radius: 15,
-                  backgroundImage: _localImagePath != null
+                  backgroundImage: _localImagePath != null && File(_localImagePath!).existsSync()
                       ? FileImage(File(_localImagePath!)) as ImageProvider
                       : (user?.photoURL != null
                       ? NetworkImage(user!.photoURL!) as ImageProvider
@@ -203,14 +236,16 @@ class _MasterPageState extends State<MasterPage> {
               ListTile(
                 leading: const Icon(Icons.person),
                 title: const Text('Edit Profile'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
+                onTap: () async {
+                  Navigator.pop(context); // Close the drawer
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const EditProfileScreen(),
                     ),
                   );
+                  await _loadPreferences(); // Refresh preferences after returning
+                  setState(() {}); // Trigger UI rebuild
                 },
               ),
               ListTile(
@@ -263,6 +298,7 @@ class _MasterPageState extends State<MasterPage> {
                 ),
                 onTap: () async {
                   await FirebaseAuth.instance.signOut();
+                  await PreferencesHelper.clearPreferences();
                   Navigator.pushReplacementNamed(context, '/login');
                 },
               ),
