@@ -14,7 +14,22 @@ import 'package:mad_assignment/user/preferences_helper.dart';
 import 'dart:io';
 
 class MasterPage extends StatefulWidget {
-  const MasterPage({super.key});
+  final String? preloadedImagePath;
+  final Map<String, dynamic>? preloadedUserData;
+  final bool? preloadedIsMuted;
+  final int? preloadedMuteDuration;
+  final bool? preloadedVibrationEnabled;
+  final String? preloadedNotificationSound;
+
+  const MasterPage({
+    super.key,
+    this.preloadedImagePath,
+    this.preloadedUserData,
+    this.preloadedIsMuted,
+    this.preloadedMuteDuration,
+    this.preloadedVibrationEnabled,
+    this.preloadedNotificationSound,
+  });
 
   @override
   State<MasterPage> createState() => _MasterPageState();
@@ -44,7 +59,21 @@ class _MasterPageState extends State<MasterPage> {
   @override
   void initState() {
     super.initState();
-    _loadPreferencesAndData(); // Load preferences and user data on init
+    // Use preloaded data if provided from SplashScreen, else load it
+    if (widget.preloadedImagePath != null ||
+        widget.preloadedUserData != null ||
+        widget.preloadedIsMuted != null) {
+      setState(() {
+        _localImagePath = widget.preloadedImagePath;
+        _userData = widget.preloadedUserData;
+        _isMuted = widget.preloadedIsMuted ?? false;
+        _muteDuration = widget.preloadedMuteDuration ?? 0;
+        _vibrationEnabled = widget.preloadedVibrationEnabled ?? true;
+        _notificationSound = widget.preloadedNotificationSound ?? 'default';
+      });
+    } else {
+      _loadPreferencesAndData();
+    }
   }
 
   Future<void> _loadPreferencesAndData() async {
@@ -72,7 +101,7 @@ class _MasterPageState extends State<MasterPage> {
     });
 
     // Sync login status with Firebase
-    if (isLoggedIn && user == null) {
+    if (isLoggedIn && FirebaseAuth.instance.currentUser == null) {
       await PreferencesHelper.setLoginStatus(false);
     }
   }
@@ -80,14 +109,10 @@ class _MasterPageState extends State<MasterPage> {
   Future<void> _toggleMuteNotifications() async {
     setState(() {
       _isMuted = !_isMuted;
-      if (!_isMuted) _muteDuration = 0;
+      _muteDuration = _isMuted ? -1 : 0; // Set -1 for mute, 0 for unmute
     });
     await PreferencesHelper.setMuteStatus(_isMuted);
-    if (_isMuted) {
-      await PreferencesHelper.setMuteDuration(-1); // Forever mute
-    } else {
-      await PreferencesHelper.setMuteDuration(0); // Reset duration
-    }
+    await PreferencesHelper.setMuteDuration(_muteDuration);
   }
 
   @override

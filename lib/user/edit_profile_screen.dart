@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:mad_assignment/user/preferences_helper.dart';
@@ -30,12 +31,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _localImagePath = widget.localImagePath; // Use preloaded image path
   }
 
-  Future<void> _saveImagePath(String? path) async {
-    if (path == null) {
-      await PreferencesHelper.clearProfileImagePath();
+  Future<bool> _requestGalleryPermission() async {
+    PermissionStatus status;
+    // Check platform and request appropriate permission
+    if (Platform.isAndroid) {
+      // For Android 13+, use READ_MEDIA_IMAGES; otherwise, READ_EXTERNAL_STORAGE
+      status = await Permission.photos.request();
+      if (status.isPermanentlyDenied || status.isDenied) {
+        // For older Android versions, fall back to storage permission
+        status = await Permission.storage.request();
+      }
     } else {
-      await PreferencesHelper.setProfileImagePath(path);
+      // iOS uses photos permission
+      status = await Permission.photos.request();
     }
+
+    if (status.isPermanentlyDenied) {
+      _showSnackBar('Gallery access denied. Please enable it in settings.');
+      await openAppSettings(); // Prompt user to open settings
+      return false;
+    } else if (status.isDenied) {
+      _showSnackBar('Gallery access denied. Please allow access to continue.');
+      return false;
+    }
+    return true;
   }
 
   Future<void> _uploadProfileImage() async {
@@ -44,6 +63,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
+      // Request gallery permission
+      final hasPermission = await _requestGalleryPermission();
+      if (!hasPermission) {
+        setState(() {
+          _isUploading = false;
+        });
+        return;
+      }
+
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
@@ -54,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final imageFile = File(image.path);
       if (!await imageFile.exists()) {
-        _showSnackBar('Selected image file does not exist. Check permissions.');
+        _showSnackBar('Selected image file does not exist.');
         return;
       }
 
@@ -75,6 +103,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _isUploading = false;
       });
+    }
+  }
+
+  Future<void> _saveImagePath(String? path) async {
+    if (path == null) {
+      await PreferencesHelper.clearProfileImagePath();
+    } else {
+      await PreferencesHelper.setProfileImagePath(path);
     }
   }
 
