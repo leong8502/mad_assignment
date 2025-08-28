@@ -10,7 +10,6 @@ import 'package:mad_assignment/user/notification_settings_screen.dart';
 import 'package:mad_assignment/user/edit_profile_screen.dart';
 import 'package:mad_assignment/user/reset_password_screen.dart';
 import 'package:mad_assignment/user/info_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mad_assignment/user/preferences_helper.dart';
 import 'dart:io';
 
@@ -37,23 +36,43 @@ class _MasterPageState extends State<MasterPage> {
   ];
   String? _localImagePath;
   bool _isMuted = false;
+  int _muteDuration = 0; // Cache notification settings
+  bool _vibrationEnabled = true;
+  String _notificationSound = 'default';
+  Map<String, dynamic>? _userData; // Cache user data
 
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
+    _loadPreferencesAndData(); // Load preferences and user data on init
   }
 
-  Future<void> _loadPreferences() async {
+  Future<void> _loadPreferencesAndData() async {
     final isLoggedIn = await PreferencesHelper.getLoginStatus();
     final isMuted = await PreferencesHelper.getMuteStatus();
-    final prefs = await SharedPreferences.getInstance();
+    final muteDuration = await PreferencesHelper.getMuteDuration();
+    final vibrationEnabled = await PreferencesHelper.getVibrationEnabled();
+    final notificationSound = await PreferencesHelper.getNotificationSound();
+    final imagePath = await PreferencesHelper.getProfileImagePath();
+    final user = FirebaseAuth.instance.currentUser;
+
+    Map<String, dynamic>? userData;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      userData = doc.data();
+    }
+
     setState(() {
-      _localImagePath = prefs.getString('profileImagePath');
+      _localImagePath = imagePath;
       _isMuted = isMuted;
+      _muteDuration = muteDuration;
+      _vibrationEnabled = vibrationEnabled;
+      _notificationSound = notificationSound;
+      _userData = userData; // Store user data in state
     });
+
     // Sync login status with Firebase
-    if (isLoggedIn && FirebaseAuth.instance.currentUser == null) {
+    if (isLoggedIn && user == null) {
       await PreferencesHelper.setLoginStatus(false);
     }
   }
@@ -61,6 +80,7 @@ class _MasterPageState extends State<MasterPage> {
   Future<void> _toggleMuteNotifications() async {
     setState(() {
       _isMuted = !_isMuted;
+      if (!_isMuted) _muteDuration = 0;
     });
     await PreferencesHelper.setMuteStatus(_isMuted);
     if (_isMuted) {
@@ -127,10 +147,15 @@ class _MasterPageState extends State<MasterPage> {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NotificationSettingsScreen(),
+                                builder: (context) => NotificationSettingsScreen(
+                                  isMuted: _isMuted,
+                                  muteDuration: _muteDuration,
+                                  vibrationEnabled: _vibrationEnabled,
+                                  notificationSound: _notificationSound,
+                                ),
                               ),
                             );
-                            await _loadPreferences(); // Refresh mute status after settings
+                            await _loadPreferencesAndData(); // Refresh preferences after settings
                           },
                         ),
                       ],
@@ -241,10 +266,13 @@ class _MasterPageState extends State<MasterPage> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const EditProfileScreen(),
+                      builder: (context) => EditProfileScreen(
+                        localImagePath: _localImagePath,
+                        userData: _userData,
+                      ),
                     ),
                   );
-                  await _loadPreferences(); // Refresh preferences after returning
+                  await _loadPreferencesAndData(); // Refresh preferences and data after returning
                   setState(() {}); // Trigger UI rebuild
                 },
               ),

@@ -3,36 +3,38 @@ import 'package:just_audio/just_audio.dart';
 import 'package:mad_assignment/user/preferences_helper.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key});
+  final bool isMuted;
+  final int muteDuration;
+  final bool vibrationEnabled;
+  final String notificationSound;
+
+  const NotificationSettingsScreen({
+    super.key,
+    required this.isMuted,
+    required this.muteDuration,
+    required this.vibrationEnabled,
+    required this.notificationSound,
+  });
 
   @override
   State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
-  bool _isMuted = false;
-  int _muteDuration = 0;
-  bool _vibrationEnabled = false;
-  String _selectedSound = 'default';
+  late bool _isMuted;
+  late int _muteDuration;
+  late bool _vibrationEnabled;
+  late String _selectedSound;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    final isMuted = await PreferencesHelper.getMuteStatus();
-    final muteDuration = await PreferencesHelper.getMuteDuration();
-    final vibrationEnabled = await PreferencesHelper.getVibrationEnabled();
-    final selectedSound = await PreferencesHelper.getNotificationSound();
-    setState(() {
-      _isMuted = isMuted;
-      _muteDuration = muteDuration;
-      _vibrationEnabled = vibrationEnabled;
-      _selectedSound = selectedSound;
-    });
+    // Initialize with preloaded values
+    _isMuted = widget.isMuted;
+    _muteDuration = widget.muteDuration;
+    _vibrationEnabled = widget.vibrationEnabled;
+    _selectedSound = widget.notificationSound;
   }
 
   Future<void> _savePreferences() async {
@@ -63,8 +65,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     try {
       await _audioPlayer.setAsset(soundPath);
       await _audioPlayer.play();
-    } catch (e, stackTrace) {
-      // Handle error silently or log as needed
+    } catch (e) {
+      // Handle error silently
     }
   }
 
@@ -114,7 +116,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     onChanged: (value) {
                       setState(() {
                         _isMuted = value;
-                        if (!value) _muteDuration = 0;
+                        if (value) {
+                          _muteDuration = -1; // Default to "Forever" when muted
+                        } else {
+                          _muteDuration = 0; // Reset when unmuted
+                        }
                       });
                     },
                   ),

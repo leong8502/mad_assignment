@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mad_assignment/user/preferences_helper.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
+
+  Future<bool> _checkAuthStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final isLoggedIn = await PreferencesHelper.getLoginStatus();
+    // Return true if user is authenticated, login status is true, and email is verified
+    return user != null && isLoggedIn && user.emailVerified;
+  }
+
+  void _handleGetStarted(BuildContext context) async {
+    final isAuthenticated = await _checkAuthStatus();
+    if (isAuthenticated) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +47,7 @@ class SplashScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+              onPressed: () => _handleGetStarted(context),
               child: const Text('Get Started'),
             ),
           ],
