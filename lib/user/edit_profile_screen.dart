@@ -124,11 +124,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    // Use preloaded user data or fallback to defaults
+    // Use preloaded user data or fallback to defaults for non-email fields
     String fullName = widget.userData?['username'] ?? '-';
-    String email = widget.userData?['email'] ?? user?.email ?? '-@gmail.com';
     String jobType = widget.userData?['jobType'] ?? '-';
     String workId = widget.userData?['workId'] ?? 'N/A';
+    // Use Firebase Authentication for email
+    String email = user?.email ?? '-@gmail.com';
 
     final fullNameController = TextEditingController(text: fullName);
     final emailController = TextEditingController(text: email);
@@ -238,7 +239,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: emailController,
                 enabled: false,
                 decoration: InputDecoration(
-                  hintText: 'Enter your email...',
+                  hintText: 'Your email...',
                   prefixIcon: const Icon(Icons.email, color: Colors.grey),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -291,7 +292,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             .doc(user.uid)
                             .set({
                           'username': fullNameController.text.trim(),
-                          'email': emailController.text.trim(),
+                          // Do not update email in Firestore, it's managed by Firebase Auth
+                          // Only username using, other just put only
                           'jobType': jobTypeController.text.trim(),
                           'workId': workIdController.text.trim(),
                         }, SetOptions(merge: true));

@@ -94,7 +94,7 @@ class _ResetEmailScreenState extends State<ResetEmailScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Success'),
-          content: const Text('A verification email has been sent to your new email address. Please verify to complete the email change.'),
+          content: const Text('A verification email has been sent to your new email address. Please verify it to complete the email change.\n\nAfter verification, log in again to update your email.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

@@ -219,12 +219,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Username', style: TextStyle(fontSize: 16)),
+                    const Text('Full name', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _usernameController,
                       decoration: InputDecoration(
-                        hintText: 'Enter your username...', // Already present as placeholder
+                        hintText: 'Enter your Full name...', // Already present as placeholder
                         prefixIcon: const Icon(Icons.person, color: Colors.grey), // Added prefix icon
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
