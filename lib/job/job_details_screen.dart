@@ -1,19 +1,74 @@
+// Modified job_details_screen.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 /// ============================
 /// Job Details Screen
 /// ============================
-class JobDetailsScreen extends StatelessWidget {
+class JobDetailsScreen extends StatefulWidget {
   final String title;
   final String id;
 
   const JobDetailsScreen({super.key, required this.title, required this.id});
 
   @override
+  State<JobDetailsScreen> createState() => _JobDetailsScreenState();
+}
+
+class _JobDetailsScreenState extends State<JobDetailsScreen> {
+  Map<String, dynamic>? jobData;
+  String? docId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchJob();
+  }
+
+  Future<void> _fetchJob() async {
+    int jobId = int.parse(widget.id.substring(4)); // Extract ID from 'ID: 5143'
+    try {
+      var query = await FirebaseFirestore.instance
+          .collection('projects')
+          .where('id', isEqualTo: jobId)
+          .get();
+      if (query.docs.isNotEmpty) {
+        setState(() {
+          docId = query.docs.first.id;
+          jobData = query.docs.first.data() as Map<String, dynamic>?;
+        });
+      }
+    } catch (e) {
+      print('Error fetching job: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (jobData == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    String formattedDueDate = jobData!['dueDate'] is Timestamp
+        ? '${(jobData!['dueDate'] as Timestamp).toDate().month.toString().padLeft(2, '0')} '
+        '${(jobData!['dueDate'] as Timestamp).toDate().day.toString().padLeft(2, '0')} '
+        '${(jobData!['dueDate'] as Timestamp).toDate().year}'
+        : 'No due date';
+
+    String requestedServices = jobData!['requested_services'] ?? 'No services specified';
+    String estimatedTime = jobData!['estimated_completion_time'] ?? 'Not specified';
+    String customerName = jobData!['name'] ?? 'Unknown';
+    String contact = jobData!['contact'] ?? 'Not provided';
+    String vehicleInfo = jobData!['vehicle_info'] ?? 'Not provided';
+    String registration = jobData!['registration'] ?? 'Not provided';
+    String vin = jobData!['vin'] ?? 'Not provided';
+    String serviceHistory = jobData!['service_history'] ?? 'No history available';
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(jobData!['title'] ?? widget.title),
         backgroundColor: Colors.purple,
       ),
       body: Container(
@@ -36,9 +91,8 @@ class JobDetailsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  "$title\n$id",
-                  style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  "${jobData!['title'] ?? widget.title}\nID: ${jobData!['id'] ?? widget.id.substring(4)}",
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 20),
@@ -58,17 +112,12 @@ class JobDetailsScreen extends StatelessWidget {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Name: Ahmad bin Ismail",
-                            style: TextStyle(fontSize: 16)),
-                        Text("Contact: 012-345 6789",
-                            style: TextStyle(fontSize: 16)),
-                        Text("Vehicle info: Toyota Camry, 2018, Sedan",
-                            style: TextStyle(fontSize: 16)),
-                        Text("Registration: WKL 4567",
-                            style: TextStyle(fontSize: 16)),
-                        Text("VIN: JT2BF22K1W0123456",
-                            style: TextStyle(fontSize: 16)),
+                      children: [
+                        Text("Name: $customerName", style: const TextStyle(fontSize: 16)),
+                        Text("Contact: $contact", style: const TextStyle(fontSize: 16)),
+                        Text("Vehicle info: $vehicleInfo", style: const TextStyle(fontSize: 16)),
+                        Text("Registration: $registration", style: const TextStyle(fontSize: 16)),
+                        Text("VIN: $vin", style: const TextStyle(fontSize: 16)),
                       ],
                     ),
                   ),
@@ -79,46 +128,40 @@ class JobDetailsScreen extends StatelessWidget {
               const Text("Job Description",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
-              const Text(
-                  "Customer reports squeaking brakes and reduced braking efficiency."),
+              Text(jobData!['description'] ?? "No description available."),
 
               const SizedBox(height: 16),
               const Text("Requested Services",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
-              const Text(
-                  "Inspect and replace brake pads, check brake rotors, perform brake fluid flush."),
+              Text(requestedServices),
 
               const SizedBox(height: 16),
               const Text("Due Date",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text("06 Dec 2025"),
+              Text(formattedDueDate),
 
               const SizedBox(height: 16),
               const Text("Estimated Completion Time",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text("3 hours"),
+              Text(estimatedTime),
 
               const SizedBox(height: 16),
               const Text("Assigned Parts",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text(
-                  "• Brake Pads (Front)\n• Brake Fluid\n• Brake Rotors (Front)"),
+              Text(jobData!['details'] ?? "No details available."),
 
               const SizedBox(height: 16),
               const Text("Service History",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text("15/03/2024: Oil change and tire rotation\n"
-                  "10/09/2023: Brake inspection, no issues\n"
-                  "22/01/2023: Battery replacement"),
+              Text(serviceHistory),
 
               const SizedBox(height: 30),
               Center(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -146,21 +189,27 @@ class JobDetailsScreen extends StatelessWidget {
         actions: [
           TextButton(
             style: TextButton.styleFrom(
-              backgroundColor: Colors.grey, // Added background for visibility
-              foregroundColor: Colors.white, // Affects text + icon color
+              backgroundColor: Colors.grey,
+              foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context),
             child: const Text(
               "Cancel",
-              style: TextStyle(color: Colors.white), // Ensures text color is white
+              style: TextStyle(color: Colors.white),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
-              foregroundColor: Colors.white, // Affects text + icon color
+              foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
+              if (docId != null) {
+                await FirebaseFirestore.instance
+                    .collection('projects')
+                    .doc(docId)
+                    .update({'status': 'Accepted'});
+              }
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Job accepted successfully!")),
@@ -169,7 +218,7 @@ class JobDetailsScreen extends StatelessWidget {
             },
             child: const Text(
               "Accept",
-              style: TextStyle(color: Colors.white), // Ensures text color is white
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ],

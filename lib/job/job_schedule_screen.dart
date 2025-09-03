@@ -1,3 +1,6 @@
+// Modified job_schedule_screen.dart
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'job_details_screen.dart';
 
@@ -15,17 +18,47 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
   DateTime? _currentDate = DateTime.now();
   bool _showAllJobs = false;
 
-  final Map<String, List<Map<String, String>>> jobsByDate = {
-    '2025-09-18': [
-      {'title': 'Car Brake Repair', 'id': 'ID: 5143'},
-      {'title': 'Motorcycle Engine Tune-Up', 'id': 'ID: 1734'},
-    ],
-    '2025-09-20': [
-      {'title': 'Oil Change Service', 'id': 'ID: 6005'},
-    ],
-  };
+  Map<String, List<Map<String, String>>> jobsByDate = {};
+
+  StreamSubscription<QuerySnapshot>? _sub;
 
   final List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadJobs();
+  }
+
+  void _loadJobs() {
+    _sub?.cancel();
+    _sub = FirebaseFirestore.instance.collection('projects').snapshots().listen((snapshot) {
+      Map<String, List<Map<String, String>>> newJobs = {};
+      for (var doc in snapshot.docs) {
+        var data = doc.data();
+        if (data['date'] is Timestamp) {
+          Timestamp dateTs = data['date'] as Timestamp;
+          DateTime date = dateTs.toDate();
+          String key =
+              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          newJobs.putIfAbsent(key, () => []);
+          newJobs[key]!.add({
+            'title': data['title'] as String? ?? 'Untitled',
+            'id': 'ID: ${data['id']}',
+          });
+        }
+      }
+      setState(() {
+        jobsByDate = newJobs;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
