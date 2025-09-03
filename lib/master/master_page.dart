@@ -3,9 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mad_assignment/user/reset_email_screen.dart';
 import '/dashboard_screen.dart';
-import '/schedule_screen.dart';
 import '/inbox_screen.dart';
 import '/worklist_screen.dart';
+import '/job/job_schedule_screen.dart';
+import '/schedule_screen.dart';
+import '/job/work_list_screen.dart';
 import 'package:mad_assignment/user/notification_settings_screen.dart';
 import 'package:mad_assignment/user/edit_profile_screen.dart';
 import 'package:mad_assignment/user/reset_password_screen.dart';
@@ -39,9 +41,9 @@ class _MasterPageState extends State<MasterPage> {
   int _selectedIndex = 0;
   final List<Widget> _screens = const [
     DashboardScreen(),
-    ScheduleScreen(),
+    JobScheduleScreen(),
     InboxScreen(),
-    WorklistScreen(),
+    WorkListScreen(),
   ];
   final List<String> _titles = const [
     'Dashboard',
