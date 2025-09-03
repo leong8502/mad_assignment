@@ -1,4 +1,3 @@
-// Modified job_details_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -17,6 +16,7 @@ class JobDetailsScreen extends StatefulWidget {
 
 class _JobDetailsScreenState extends State<JobDetailsScreen> {
   Map<String, dynamic>? jobData;
+  Map<String, dynamic>? customerData;
   String? docId;
 
   @override
@@ -36,6 +36,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         setState(() {
           docId = query.docs.first.id;
           jobData = query.docs.first.data() as Map<String, dynamic>?;
+          _fetchCustomerDetails(jobData?['customer_id']);
         });
       }
     } catch (e) {
@@ -43,9 +44,27 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     }
   }
 
+  Future<void> _fetchCustomerDetails(String? customerId) async {
+    if (customerId != null) {
+      try {
+        var customerQuery = await FirebaseFirestore.instance
+            .collection('customers')
+            .where('customer_id', isEqualTo: customerId)
+            .get();
+        if (customerQuery.docs.isNotEmpty) {
+          setState(() {
+            customerData = customerQuery.docs.first.data() as Map<String, dynamic>?;
+          });
+        }
+      } catch (e) {
+        print('Error fetching customer: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (jobData == null) {
+    if (jobData == null || customerData == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -59,11 +78,11 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
     String requestedServices = jobData!['requested_services'] ?? 'No services specified';
     String estimatedTime = jobData!['estimated_completion_time'] ?? 'Not specified';
-    String customerName = jobData!['name'] ?? 'Unknown';
-    String contact = jobData!['contact'] ?? 'Not provided';
-    String vehicleInfo = jobData!['vehicle_info'] ?? 'Not provided';
-    String registration = jobData!['registration'] ?? 'Not provided';
-    String vin = jobData!['vin'] ?? 'Not provided';
+    String customerName = customerData?['name'] ?? 'Unknown';
+    String contact = customerData?['contact'] ?? 'Not provided';
+    String vehicleInfo = customerData?['vehicle_info'] ?? 'Not provided';
+    String registration = customerData?['registration'] ?? 'Not provided';
+    String vin = customerData?['vin'] ?? 'Not provided';
     String serviceHistory = jobData!['service_history'] ?? 'No history available';
 
     return Scaffold(
