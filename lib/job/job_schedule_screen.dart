@@ -1,4 +1,3 @@
-// Modified job_schedule_screen.dart
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -39,8 +38,8 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
         if (data['date'] is Timestamp) {
           Timestamp dateTs = data['date'] as Timestamp;
           DateTime date = dateTs.toDate();
-          String key =
-              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          // Use only date components for the key (ignore time)
+          String key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
           newJobs.putIfAbsent(key, () => []);
           newJobs[key]!.add({
             'title': data['title'] as String? ?? 'Untitled',
@@ -68,12 +67,12 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
     final List<DateTime> weekDates =
     List.generate(7, (index) => monday.add(Duration(days: index)));
 
-    final String todayKey = _currentDate != null
+    final String selectedKey = _currentDate != null
         ? '${_currentDate!.year}-${_currentDate!.month.toString().padLeft(2, '0')}-${_currentDate!.day.toString().padLeft(2, '0')}'
         : '';
     final List<Map<String, String>> jobs = _showAllJobs
         ? jobsByDate.values.expand((jobs) => jobs).toList()
-        : jobsByDate[todayKey] ?? [];
+        : jobsByDate[selectedKey] ?? [];
 
     return Scaffold(
       backgroundColor: Colors.white,
