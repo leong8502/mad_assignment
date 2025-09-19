@@ -108,11 +108,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final data = doc.data() as Map<String, dynamic>;
                     final title = data['title']?.toString().toLowerCase() ?? '';
                     final jobId = data['id']?.toString().toLowerCase() ?? '';
-                    final customerId = data['customer_id']?.toString().toLowerCase() ?? '';
                     return _searchQuery.isEmpty ||
                         title.contains(_searchQuery) ||
-                        jobId.contains(_searchQuery) ||
-                        customerId.contains(_searchQuery);
+                        jobId.contains(_searchQuery);
                   }).toList();
                   if (filteredDocs.isEmpty) {
                     return const Center(child: Text('No matching jobs found.'));
