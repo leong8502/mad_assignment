@@ -34,23 +34,38 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
     _sub = FirebaseFirestore.instance.collection('projects').snapshots().listen((snapshot) {
       Map<String, List<Map<String, String>>> newJobs = {};
       for (var doc in snapshot.docs) {
-        var data = doc.data();
+        var data = doc.data() as Map<String, dynamic>? ?? {};
         if (data['date'] is Timestamp) {
           Timestamp dateTs = data['date'] as Timestamp;
-          DateTime date = dateTs.toDate();
-          // Use only date components for the key (ignore time)
+          DateTime date = dateTs.toDate(); // Use UTC first, then adjust
           String key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          print('Raw Timestamp: ${dateTs.toDate()}, Local Date: ${date.toLocal()}, Key: $key - ${data['title']} (ID: ${data['id']})'); // Detailed debug log
           newJobs.putIfAbsent(key, () => []);
           newJobs[key]!.add({
             'title': data['title'] as String? ?? 'Untitled',
             'id': 'ID: ${data['id']}',
           });
+        } else {
+          print('Document ${doc.id} missing valid date field or not a Timestamp: $data');
         }
       }
       setState(() {
         jobsByDate = newJobs;
+        print('Updated jobsByDate keys: ${jobsByDate.keys}'); // Debug log
       });
+    }, onError: (error) {
+      print('Stream error: $error');
     });
+  }
+
+  // Function to get jobs for the current selected day
+  List<Map<String, String>> currentDayJobs() {
+    if (_currentDate == null) return [];
+    String selectedKey = '${_currentDate!.year}-${_currentDate!.month.toString().padLeft(2, '0')}-${_currentDate!.day.toString().padLeft(2, '0')}';
+    print('Selected key: $selectedKey, Available keys: ${jobsByDate.keys}'); // Enhanced debug log
+    List<Map<String, String>> dayJobs = jobsByDate[selectedKey] ?? [];
+    print('Jobs for $selectedKey: $dayJobs'); // Debug log for retrieved jobs
+    return dayJobs;
   }
 
   @override
@@ -67,12 +82,9 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
     final List<DateTime> weekDates =
     List.generate(7, (index) => monday.add(Duration(days: index)));
 
-    final String selectedKey = _currentDate != null
-        ? '${_currentDate!.year}-${_currentDate!.month.toString().padLeft(2, '0')}-${_currentDate!.day.toString().padLeft(2, '0')}'
-        : '';
     final List<Map<String, String>> jobs = _showAllJobs
         ? jobsByDate.values.expand((jobs) => jobs).toList()
-        : jobsByDate[selectedKey] ?? [];
+        : currentDayJobs();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -170,7 +182,7 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
                           );
                           if (picked != null) {
                             setState(() {
-                              _currentDate = picked;
+                              _currentDate = DateTime(picked.year, picked.month, picked.day); // Strip time
                               _showAllJobs = false;
                             });
                           }
@@ -199,7 +211,7 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
                   return GestureDetector(
                     onTap: () {
                       setState(() {
-                        _currentDate = date;
+                        _currentDate = DateTime(date.year, date.month, date.day); // Strip time
                         _showAllJobs = false;
                       });
                     },
@@ -266,6 +278,7 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
               itemCount: jobs.length,
               itemBuilder: (context, index) {
                 final job = jobs[index];
+                print('Rendering job: ${job['title']} (${job['id']})'); // Debug log
                 return _buildJobCard(job['title']!, job['id']!);
               },
             ),
