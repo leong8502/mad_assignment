@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mad_assignment/user/reset_email_screen.dart';
 import '/dashboard_screen.dart';
 import '/inbox_screen.dart';
-import '/worklist_screen.dart';
+import '/job/work_list_screen.dart';
 import '/job/job_schedule_screen.dart';
 import '/schedule_screen.dart';
 import '/job/work_list_screen.dart';

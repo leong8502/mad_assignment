@@ -1,6 +1,7 @@
 // work_list_details_screen.dart
 import 'dart:async';
 import 'dart:io'; // ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart'; // Added for Firestore update
 import 'package:flutter/material.dart';
 import 'upload_page.dart';
 import 'work_list_screen.dart';
@@ -53,8 +54,19 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
     Navigator.pop(context);
   }
 
-  void _startTimer() {
+  void _startTimer() async {
     if (_isRunning) return;
+
+    // Automatically update status to 'In Progress' if it's 'Accepted'
+    if (widget.item.status == 'Accepted') {
+      final firestore = FirebaseFirestore.instance;
+      final query = await firestore.collection('projects').where('id', isEqualTo: widget.item.projectId).get();
+      if (query.docs.isNotEmpty) {
+        final docId = query.docs.first.id;
+        await firestore.collection('projects').doc(docId).update({'status': 'In Progress'});
+      }
+    }
+
     setState(() {
       _isRunning = true;
       _startTime ??= DateTime.now();
@@ -198,24 +210,15 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                         color: Colors.black12,
                         blurRadius: 6,
                         offset: Offset(0, 3),
-                      )
+                      ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Remark:",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-
-                      // Editable remark (controller managed)
-                      const SizedBox(height: 8),
+                      const Text("Remark:", style: TextStyle(fontWeight: FontWeight.bold)),
                       TextField(
-                        controller: _remarkController, // ADD THIS
-                        onChanged: (value) {
-                          // already tracked by controller, but keep in sync if needed
-                        },
+                        controller: _remarkController,
                         decoration: const InputDecoration(
                           hintText: "Enter your remark...",
                           border: OutlineInputBorder(),

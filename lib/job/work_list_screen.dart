@@ -13,6 +13,7 @@ class WorkItem {
   final String dueDate;
   final String creator;
   final int unreadCount;
+  final int projectId; // Added projectId
   List<File> images;
   String remark;
 
@@ -24,6 +25,7 @@ class WorkItem {
     required this.dueDate,
     required this.creator,
     required this.unreadCount,
+    required this.projectId, // Added
     this.images = const [],
     this.remark = "",
   });
@@ -74,7 +76,7 @@ class _WorkListScreenState extends State<WorkListScreen> {
           : StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('projects')
-            .where('status', isEqualTo: 'Accepted')
+            .where('status', whereIn: ['Accepted', 'In Progress']) // Updated to include 'In Progress'
             .snapshots(),
         builder: (context, projectSnapshot) {
           if (projectSnapshot.connectionState == ConnectionState.waiting) {
@@ -143,9 +145,11 @@ class _WorkListScreenState extends State<WorkListScreen> {
 
                   final projectData = projectDoc.data() as Map<String, dynamic>;
                   final title = projectData['title'] ?? 'Untitled';
-                  final description = projectData['description'] ?? 'No description';
-                  final status = projectData['status'] ?? 'Accepted';
+                  final jobId = projectData['id']?.toString() ?? 'Unknown';
+                  final customerId = projectData['customer_id'];
                   final priority = projectData['priority'] ?? 'Medium';
+                  final status = projectData['status'] ?? 'Accepted';
+                  final description = projectData['description'] ?? 'No description';
                   final dueDate = projectData['dueDate'] is Timestamp
                       ? '${(projectData['dueDate'] as Timestamp).toDate().day}/'
                       '${(projectData['dueDate'] as Timestamp).toDate().month}/'
@@ -153,17 +157,79 @@ class _WorkListScreenState extends State<WorkListScreen> {
                       : 'No due date';
                   final creator = projectData['creator'] ?? 'Unknown';
 
-                  final workItem = WorkItem(
-                    title: title,
-                    description: description,
-                    status: status,
-                    priority: priority,
-                    dueDate: dueDate,
-                    creator: creator,
-                    unreadCount: 0,
-                  );
+                  return FutureBuilder<QuerySnapshot>(
+                    future: customerId != null
+                        ? FirebaseFirestore.instance
+                        .collection('customers')
+                        .where('customer_id', isEqualTo: customerId)
+                        .get()
+                        : Future.value(null),
+                    builder: (context, customerSnapshot) {
+                      if (customerSnapshot.connectionState == ConnectionState.waiting) {
+                        return const ListTile(title: Text('Loading...'));
+                      }
+                      Map<String, dynamic>? customerData;
+                      if (customerSnapshot.hasData && customerSnapshot.data!.docs.isNotEmpty) {
+                        customerData = customerSnapshot.data!.docs.first.data() as Map<String, dynamic>?;
+                      }
+                      final customerName = customerData?['name']?.toString().toLowerCase() ?? 'Unknown';
+                      final vehicle = customerData?['vehicle_info'] ?? 'Unknown';
 
-                  return _buildWorkItemCard(context, workItem);
+                      final workItem = WorkItem(
+                        title: title,
+                        description: description,
+                        status: status,
+                        priority: priority,
+                        dueDate: dueDate,
+                        creator: creator,
+                        unreadCount: 0,
+                        projectId: projectId, // Added
+                      );
+
+                      return Card(
+                        elevation: 3,
+                        margin: const EdgeInsets.only(bottom: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => WorkListDetailsScreen(item: workItem),
+                              ),
+                            );
+                          },
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(15),
+                            leading: CircleAvatar(
+                              backgroundColor: _getStatusColor(status),
+                              child: Text(
+                                jobId.substring(0, 1),
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            title: Text(
+                              '${title} (ID: $jobId)',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Customer: $customerName'),
+                                Text('Vehicle: $vehicle'),
+                                Text(
+                                  'Priority: $priority | Status: $status',
+                                  style: TextStyle(color: _getStatusColor(status)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 },
               );
             },
@@ -173,118 +239,15 @@ class _WorkListScreenState extends State<WorkListScreen> {
     );
   }
 
-  Widget _buildWorkItemCard(BuildContext context, WorkItem item) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WorkListDetailsScreen(item: item),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (item.unreadCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        item.unreadCount.toString(),
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.description,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildChip(
-                    label: item.status,
-                    color: _getStatusColor(item.status),
-                  ),
-                  Text(
-                    "Due: ${item.dueDate}",
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildChip(
-                    label: "Priority: ${item.priority}",
-                    color: item.priority == "High" ? Colors.red : Colors.green,
-                  ),
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Colors.purple,
-                    child: Text(
-                      item.creator[0],
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChip({required String label, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Color _getStatusColor(String status) {
+  Color _getStatusColor(String? status) {
     switch (status) {
-      case "Completed":
+      case 'Completed':
         return Colors.green;
-      case "In Progress":
+      case 'In Progress':
         return Colors.orange;
-      case "Accepted":
+      case 'Pending':
+        return Colors.grey;
+      case 'Accepted':
         return Colors.blue;
       default:
         return Colors.grey;

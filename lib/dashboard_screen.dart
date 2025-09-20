@@ -209,6 +209,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Colors.orange;
       case 'Pending':
         return Colors.grey;
+      case 'Accepted':
+        return Colors.blue;
       default:
         return Colors.grey;
     }
