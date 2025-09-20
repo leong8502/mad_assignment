@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mad_assignment/job/work_list_details_screen.dart';
-
+import 'dart:io';
 // Data model for a work item
 class WorkItem {
   final String title;
@@ -10,6 +10,8 @@ class WorkItem {
   final String dueDate;
   final String creator;
   final int unreadCount;
+  List<File> images;
+  String remark;
 
   WorkItem({
     required this.title,
@@ -19,6 +21,8 @@ class WorkItem {
     required this.dueDate,
     required this.creator,
     required this.unreadCount,
+    this.images = const [],
+    this.remark = "",
   });
 }
 
@@ -105,14 +109,15 @@ class WorkListScreen extends StatelessWidget {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const WorkListDetailsScreen(),
+              builder: (context) => WorkListDetailsScreen(item: item),
             ),
           );
         },
+
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
