@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   controller: _searchController,
                   onChanged: _onSearchChanged,
                   decoration: InputDecoration(
-                    hintText: 'Search jobs, customers, or IDs...',
+                    hintText: 'Search jobs or IDs...',
                     prefixIcon: const Icon(Icons.search, color: Colors.grey),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
@@ -126,12 +126,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final customerId = data['customer_id'];
                       final priority = data['priority'] ?? 'Medium';
                       final status = data['status'] ?? 'Pending';
-                      return FutureBuilder<DocumentSnapshot>(
+                      return FutureBuilder<QuerySnapshot>(
                         future: customerId != null
-                            ? FirebaseFirestore.instance.collection('customers').doc(customerId).get()
+                            ? FirebaseFirestore.instance
+                            .collection('customers')
+                            .where('customer_id', isEqualTo: customerId)
+                            .get()
                             : Future.value(null),
                         builder: (context, customerSnapshot) {
-                          final customerData = customerSnapshot.data?.data() as Map<String, dynamic>?;
+                          if (customerSnapshot.connectionState == ConnectionState.waiting) {
+                            return const ListTile(title: Text('Loading...'));
+                          }
+                          Map<String, dynamic>? customerData;
+                          if (customerSnapshot.hasData && customerSnapshot.data!.docs.isNotEmpty) {
+                            customerData = customerSnapshot.data!.docs.first.data() as Map<String, dynamic>?;
+                          }
                           final customerName = customerData?['name']?.toString().toLowerCase() ?? 'Unknown';
                           final vehicle = customerData?['vehicle_info'] ?? 'Unknown';
                           return Card(
