@@ -35,7 +35,7 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
       Map<String, List<Map<String, String>>> newJobs = {};
       for (var doc in snapshot.docs) {
         var data = doc.data() as Map<String, dynamic>? ?? {};
-        if (data['date'] is Timestamp) {
+        if (data['date'] is Timestamp && (data['status'] == null || data['status'] != 'Accepted')) {
           Timestamp dateTs = data['date'] as Timestamp;
           DateTime date = dateTs.toDate(); // Use UTC first, then adjust
           String key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -46,7 +46,7 @@ class _JobScheduleScreenState extends State<JobScheduleScreen> {
             'id': 'ID: ${data['id']}',
           });
         } else {
-          print('Document ${doc.id} missing valid date field or not a Timestamp: $data');
+          print('Document ${doc.id} missing valid date field or not a Timestamp, or status is Accepted: $data');
         }
       }
       setState(() {

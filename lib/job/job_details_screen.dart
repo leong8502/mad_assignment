@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // For user authentication
 import 'package:flutter/material.dart';
 
 /// ============================
@@ -53,13 +54,31 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             .get();
         if (customerQuery.docs.isNotEmpty) {
           setState(() {
-            customerData = customerQuery.docs.first.data() as Map<String, dynamic>?;
+            customerData =
+            customerQuery.docs.first.data() as Map<String, dynamic>?;
           });
         }
       } catch (e) {
         print('Error fetching customer: $e');
       }
     }
+  }
+
+  Future<String?> _getWorkId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        return userDoc.data()?['workId'] as String?;
+      } catch (e) {
+        print('Error fetching workId: $e');
+        return null;
+      }
+    }
+    return null;
   }
 
   @override
@@ -76,14 +95,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         '${(jobData!['dueDate'] as Timestamp).toDate().year}'
         : 'No due date';
 
-    String requestedServices = jobData!['requested_services'] ?? 'No services specified';
-    String estimatedTime = jobData!['estimated_completion_time'] ?? 'Not specified';
+    String requestedServices =
+        jobData!['requested_services'] ?? 'No services specified';
+    String estimatedTime =
+        jobData!['estimated_completion_time'] ?? 'Not specified';
     String customerName = customerData?['name'] ?? 'Unknown';
     String contact = customerData?['contact'] ?? 'Not provided';
     String vehicleInfo = customerData?['vehicle_info'] ?? 'Not provided';
     String registration = customerData?['registration'] ?? 'Not provided';
     String vin = customerData?['vin'] ?? 'Not provided';
-    String serviceHistory = jobData!['service_history'] ?? 'No history available';
+    String serviceHistory =
+        jobData!['service_history'] ?? 'No history available';
 
     return Scaffold(
       appBar: AppBar(
@@ -111,7 +133,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                 ),
                 child: Text(
                   "${jobData!['title'] ?? widget.title}\nID: ${jobData!['id'] ?? widget.id.substring(4)}",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 20),
@@ -132,11 +155,16 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Name: $customerName", style: const TextStyle(fontSize: 16)),
-                        Text("Contact: $contact", style: const TextStyle(fontSize: 16)),
-                        Text("Vehicle info: $vehicleInfo", style: const TextStyle(fontSize: 16)),
-                        Text("Registration: $registration", style: const TextStyle(fontSize: 16)),
-                        Text("VIN: $vin", style: const TextStyle(fontSize: 16)),
+                        Text("Name: $customerName",
+                            style: const TextStyle(fontSize: 16)),
+                        Text("Contact: $contact",
+                            style: const TextStyle(fontSize: 16)),
+                        Text("Vehicle info: $vehicleInfo",
+                            style: const TextStyle(fontSize: 16)),
+                        Text("Registration: $registration",
+                            style: const TextStyle(fontSize: 16)),
+                        Text("VIN: $vin",
+                            style: const TextStyle(fontSize: 16)),
                       ],
                     ),
                   ),
@@ -180,7 +208,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -224,16 +253,31 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             ),
             onPressed: () async {
               if (docId != null) {
+                // Update project status
                 await FirebaseFirestore.instance
                     .collection('projects')
                     .doc(docId)
                     .update({'status': 'Accepted'});
+
+                // Add task document with projectId and workId
+                int projectId = int.parse(widget.id.substring(4));
+                String? workId = await _getWorkId();
+
+                if (workId != null) {
+                  await FirebaseFirestore.instance.collection('task').add({
+                    'projectId': projectId,
+                    'workId': workId, // store actual workId like "WM003"
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                } else {
+                  print('No workId found for the user.');
+                }
               }
-              Navigator.pop(context);
+              Navigator.pop(context); // close dialog
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Job accepted successfully!")),
               );
-              Navigator.pop(context);
+              Navigator.pop(context); // go back
             },
             child: const Text(
               "Accept",
