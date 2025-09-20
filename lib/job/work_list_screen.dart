@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mad_assignment/job/work_list_details_screen.dart';
 import 'dart:io';
+
 // Data model for a work item
 class WorkItem {
   final String title;
@@ -26,78 +29,145 @@ class WorkItem {
   });
 }
 
-class WorkListScreen extends StatelessWidget {
+class WorkListScreen extends StatefulWidget {
   const WorkListScreen({super.key});
 
-  // Sample data list
-  static final List<WorkItem> workItems = [
-    WorkItem(
-      title: 'Project 1',
-      description: 'Description',
-      status: 'Completed',
-      priority: 'High',
-      dueDate: '04 Dec 2025',
-      creator: 'Alex',
-      unreadCount: 1,
-    ),
-    WorkItem(
-      title: 'Project 2',
-      description: 'Description',
-      status: 'Accepted',
-      priority: 'Low',
-      dueDate: '08 Dec 2025',
-      creator: 'Yu Xing',
-      unreadCount: 0,
-    ),
-    WorkItem(
-      title: 'Car Brake Repair',
-      description: 'Description',
-      status: 'In Progress',
-      priority: 'High',
-      dueDate: '04 Dec 2025',
-      creator: 'Keshandra',
-      unreadCount: 1,
-    ),
-  ];
+  @override
+  State<WorkListScreen> createState() => _WorkListScreenState();
+}
+
+class _WorkListScreenState extends State<WorkListScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String? workId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWorkId();
+  }
+
+  Future<void> _fetchWorkId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        final fetchedWorkId = userDoc.data()?['workId'] as String?;
+        print('Fetched workId: $fetchedWorkId');
+        setState(() {
+          workId = fetchedWorkId;
+        });
+      } catch (e) {
+        print('Error fetching workId: $e');
+      }
+    } else {
+      print('No authenticated user found');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now(); // 09:55 PM +08, September 20, 2025
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: workItems.length + 1, // +1 for header
-        itemBuilder: (context, index) {
-          if (index == 2) {
-            // Insert divider and date header before the third item
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
-              child: Row(
-                children: [
-                  Expanded(child: Divider(thickness: 1)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text(
-                      'Sep 4, 2024',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                  Expanded(child: Divider(thickness: 1)),
-                ],
-              ),
-            );
+      body: workId == null
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('projects')
+            .where('status', isEqualTo: 'Accepted')
+            .snapshots(),
+        builder: (context, projectSnapshot) {
+          if (projectSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!projectSnapshot.hasData || projectSnapshot.data!.docs.isEmpty) {
+            print('No accepted projects found');
+            return const Center(child: Text('No accepted jobs found.'));
           }
 
-          // Adjust index for work items after the divider
-          final itemIndex = index > 2 ? index - 1 : index;
-          if (itemIndex < workItems.length) {
-            final item = workItems[itemIndex];
-            return _buildWorkItemCard(context, item);
-          }
-          return const SizedBox.shrink();
+          final projectDocs = projectSnapshot.data!.docs;
+          print('Found ${projectDocs.length} accepted projects: ${projectDocs.map((d) => d.data()).toList()}');
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: projectDocs.length + 1, // +1 for header
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
+                  child: Row(
+                    children: [
+                      const Expanded(child: Divider(thickness: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          'Accepted Jobs - ${now.day}/${now.month}/${now.year}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      const Expanded(child: Divider(thickness: 1)),
+                    ],
+                  ),
+                );
+              }
+
+              final projectIndex = index - 1;
+              final projectDoc = projectDocs[projectIndex];
+              final projectId = projectDoc['id'] as int;
+              print('Processing project with id: $projectId');
+
+              return FutureBuilder<QuerySnapshot>(
+                future: _firestore
+                    .collection('task')
+                    .where('projectId', isEqualTo: projectId)
+                    .where('workId', isEqualTo: workId)
+                    .limit(1)
+                    .get(),
+                builder: (context, taskSnapshot) {
+                  if (taskSnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
+                  if (!taskSnapshot.hasData || taskSnapshot.data!.docs.isEmpty) {
+                    print('No task found for projectId: $projectId and workId: $workId');
+                    return const SizedBox.shrink();
+                  }
+
+                  final taskDoc = taskSnapshot.data!.docs.first;
+                  final taskProjectId = taskDoc['projectId'] as int;
+                  if (taskProjectId != projectId) {
+                    print('Mismatch: projectId ($projectId) does not match task projectId ($taskProjectId)');
+                    return const SizedBox.shrink();
+                  }
+
+                  final projectData = projectDoc.data() as Map<String, dynamic>;
+                  final title = projectData['title'] ?? 'Untitled';
+                  final description = projectData['description'] ?? 'No description';
+                  final status = projectData['status'] ?? 'Accepted';
+                  final priority = projectData['priority'] ?? 'Medium';
+                  final dueDate = projectData['dueDate'] is Timestamp
+                      ? '${(projectData['dueDate'] as Timestamp).toDate().day}/'
+                      '${(projectData['dueDate'] as Timestamp).toDate().month}/'
+                      '${(projectData['dueDate'] as Timestamp).toDate().year}'
+                      : 'No due date';
+                  final creator = projectData['creator'] ?? 'Unknown';
+
+                  final workItem = WorkItem(
+                    title: title,
+                    description: description,
+                    status: status,
+                    priority: priority,
+                    dueDate: dueDate,
+                    creator: creator,
+                    unreadCount: 0,
+                  );
+
+                  return _buildWorkItemCard(context, workItem);
+                },
+              );
+            },
+          );
         },
       ),
     );
@@ -117,13 +187,11 @@ class WorkListScreen extends StatelessWidget {
             ),
           );
         },
-
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row with unread badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -154,8 +222,6 @@ class WorkListScreen extends StatelessWidget {
                 style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 8),
-
-              // Status and Due Date Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -170,8 +236,6 @@ class WorkListScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Priority and Creator Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
