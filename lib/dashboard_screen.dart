@@ -90,8 +90,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 stream: _searchQuery.isEmpty
                     ? FirebaseFirestore.instance
                     .collection('projects')
-                    .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(currentDate.year, currentDate.month, currentDate.day)))
-                    .where('dueDate', isLessThan: Timestamp.fromDate(DateTime(currentDate.year, currentDate.month, currentDate.day + 1)))
+                    .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(currentDate.year, currentDate.month, currentDate.day)))
+                    .where('date', isLessThan: Timestamp.fromDate(DateTime(currentDate.year, currentDate.month, currentDate.day + 1)))
                     .snapshots()
                     : FirebaseFirestore.instance
                     .collection('projects')
@@ -105,24 +105,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
                   final docs = snapshot.data!.docs;
                   List<QueryDocumentSnapshot> filteredDocs = docs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
+                    final data = doc.data() as Map<String, dynamic>? ?? {};
                     final title = data['title']?.toString().toLowerCase() ?? '';
                     final jobId = data['id']?.toString().toLowerCase() ?? '';
-                    return _searchQuery.isEmpty ||
-                        title.contains(_searchQuery) ||
-                        jobId.contains(_searchQuery);
+                    final customerId = data['customer_id'];
+                    final priority = data['priority'] ?? 'Medium';
+                    final status = data['status'] ?? 'Pending';
+                    return title.contains(_searchQuery) || jobId.contains(_searchQuery);
                   }).toList();
-                  if (filteredDocs.isEmpty) {
-                    return const Center(child: Text('No matching jobs found.'));
-                  }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredDocs.length,
-                    itemBuilder: (context, index) {
-                      final data = filteredDocs[index].data() as Map<String, dynamic>;
-                      final jobId = data['id']?.toString() ?? 'Unknown';
+                  return Column(
+                    children: filteredDocs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>? ?? {};
                       final title = data['title'] ?? 'Untitled';
+                      final jobId = data['id'] ?? 'Unknown';
                       final customerId = data['customer_id'];
                       final priority = data['priority'] ?? 'Medium';
                       final status = data['status'] ?? 'Pending';
@@ -166,7 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 leading: CircleAvatar(
                                   backgroundColor: _getStatusColor(status),
                                   child: Text(
-                                    jobId.substring(0, 1),
+                                    jobId.toString().substring(0, 1),
                                     style: const TextStyle(color: Colors.white),
                                   ),
                                 ),
@@ -190,7 +185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         },
                       );
-                    },
+                    }).toList(),
                   );
                 },
               ),
