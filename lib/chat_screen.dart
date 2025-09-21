@@ -45,8 +45,12 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       print('Message sent: $message, ID: ${messageRef.id}');
 
-      // Scroll to the bottom after sending a message
-      await Future.delayed(const Duration(milliseconds: 100)); // Brief delay for UI update
+      // Increment unreadCount for the receiver (otherUid)
+      await firestore.collection('chats').doc(widget.chatId).update({
+        'unreadCounts.${widget.otherUid}': FieldValue.increment(1),
+      });
+
+      await Future.delayed(const Duration(milliseconds: 100));
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -63,11 +67,17 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Scroll to the bottom when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
+      // Reset unread count for the current user when chat is opened
+      FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update({
+        'unreadCounts.$currentUid': 0,
+      });
     });
   }
 
@@ -93,7 +103,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   .collection('chats')
                   .doc(widget.chatId)
                   .collection('messages')
-                  .orderBy('timestamp', descending: false) // Oldest to newest
+                  .orderBy('timestamp', descending: false)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -110,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 final messages = snapshot.data!.docs;
                 print('Messages retrieved: ${messages.length}');
                 return ListView.builder(
-                  controller: _scrollController, // Add scroll controller
+                  controller: _scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final msg = messages[index].data() as Map<String, dynamic>? ?? {};
