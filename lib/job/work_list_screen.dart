@@ -14,8 +14,13 @@ class WorkItem {
   final String creator;
   final int unreadCount;
   final int projectId; // Added projectId
+  Duration elapsedTime;
   List<File> images;
   String remark;
+  DateTime? startTime;
+  DateTime? endTime;
+  bool isRunning;
+  bool isFinished;
 
   WorkItem({
     required this.title,
@@ -26,8 +31,13 @@ class WorkItem {
     required this.creator,
     required this.unreadCount,
     required this.projectId, // Added
+    this.elapsedTime = Duration.zero,
     this.images = const [],
     this.remark = "",
+    this.startTime,
+    this.endTime,
+    this.isRunning = false,
+    this.isFinished = false,
   });
 }
 

@@ -1,11 +1,11 @@
 // work_list_details_screen.dart
 import 'dart:async';
-import 'dart:io'; // ADD THIS
-import 'package:cloud_firestore/cloud_firestore.dart'; // Added for Firestore update
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'upload_page.dart';
 import 'work_list_screen.dart';
-import 'digital_signoff.dart'; // ADD THIS
+import 'digital_signoff.dart';
 
 class WorkListDetailsScreen extends StatefulWidget {
   final WorkItem item;
@@ -17,84 +17,178 @@ class WorkListDetailsScreen extends StatefulWidget {
 }
 
 class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
-  // NOTE: using the WorkItem passed in (widget.item)
   Timer? _timer;
-  Duration _elapsed = Duration.zero;
-  bool _isRunning = false;
-  DateTime? _startTime;
-  DateTime? _endTime;
 
   List<File> uploadedImages = [];
-  late TextEditingController _remarkController; // ADD THIS
+  late TextEditingController _remarkController;
+
+  // Firestore data
+  Map<String, dynamic>? _projectData;
+  Map<String, dynamic>? _customerData;
+  bool _loadingProject = true;
 
   @override
   void initState() {
     super.initState();
-    // initialize from the WorkItem (persisted storage in memory)
     uploadedImages = List<File>.from(widget.item.images);
-    _remarkController = TextEditingController(text: widget.item.remark); // ADD THIS
+    _remarkController = TextEditingController(text: widget.item.remark);
+
+    _fetchProjectAndCustomer();
+
+    // Resume timer if already running
+    if (widget.item.isRunning && !widget.item.isFinished) {
+      _resumeTimer();
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _remarkController.dispose(); // ADD THIS
+    _remarkController.dispose();
     super.dispose();
   }
 
-  // Save into the WorkItem (but do NOT pop) - ADD THIS
+  // Fetch project + customer only
+  Future<void> _fetchProjectAndCustomer() async {
+    final firestore = FirebaseFirestore.instance;
+
+    try {
+      final projectQuery = await firestore
+          .collection('projects')
+          .where('id', isEqualTo: widget.item.projectId)
+          .get();
+
+      if (projectQuery.docs.isNotEmpty) {
+        final projectDoc = projectQuery.docs.first;
+        final projectData = projectDoc.data();
+
+        Map<String, dynamic>? customerData;
+
+        if (projectData['customer_id'] != null) {
+          final customerQuery = await firestore
+              .collection('customers')
+              .where('customer_id', isEqualTo: projectData['customer_id'])
+              .get();
+
+          if (customerQuery.docs.isNotEmpty) {
+            customerData = customerQuery.docs.first.data();
+          }
+        }
+
+        setState(() {
+          _projectData = projectData;
+          _customerData = customerData;
+          _loadingProject = false;
+        });
+      } else {
+        setState(() => _loadingProject = false);
+      }
+    } catch (e) {
+      print("Error fetching project/customer: $e");
+      setState(() => _loadingProject = false);
+    }
+  }
+
+  // Save into WorkItem
   void _saveToItem() {
     widget.item.images = uploadedImages;
     widget.item.remark = _remarkController.text.trim();
   }
 
-  // Save and pop back to list (used when user wants to leave)
   void _saveBackAndPop() {
-    _saveToItem(); // ADD THIS
+    _saveToItem();
     Navigator.pop(context);
   }
 
+  // --- TIMER METHODS ---
   void _startTimer() async {
-    if (_isRunning) return;
+    if (widget.item.isFinished) return; // cannot start after finished
+    if (widget.item.isRunning) return; // already running
 
-    // Automatically update status to 'In Progress' if it's 'Accepted'
-    if (widget.item.status == 'Accepted') {
+    // Update Firestore status only once
+    if (widget.item.status == 'Accepted' && widget.item.startTime == null) {
       final firestore = FirebaseFirestore.instance;
-      final query = await firestore.collection('projects').where('id', isEqualTo: widget.item.projectId).get();
+      final query = await firestore
+          .collection('projects')
+          .where('id', isEqualTo: widget.item.projectId)
+          .get();
       if (query.docs.isNotEmpty) {
         final docId = query.docs.first.id;
-        await firestore.collection('projects').doc(docId).update({'status': 'In Progress'});
+        await firestore
+            .collection('projects')
+            .doc(docId)
+            .update({'status': 'In Progress'});
       }
     }
 
     setState(() {
-      _isRunning = true;
-      _startTime ??= DateTime.now();
+      widget.item.isRunning = true;
+      widget.item.startTime ??= DateTime.now();
     });
+
+    _resumeTimer();
+  }
+
+  void _resumeTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _elapsed += const Duration(seconds: 1);
-      });
+      if (!widget.item.isFinished && widget.item.isRunning) {
+        setState(() {
+          final now = DateTime.now();
+          widget.item.elapsedTime = now.difference(widget.item.startTime!); // keep as Duration
+        });
+      }
     });
   }
 
   void _pauseTimer() {
-    if (!_isRunning) return;
+    if (!widget.item.isRunning || widget.item.isFinished) return;
     setState(() {
-      _isRunning = false;
-      _endTime = DateTime.now();
+      widget.item.isRunning = false;
     });
     _timer?.cancel();
   }
 
-  void _resetTimer() {
-    setState(() {
+  void _stopTimer() async {
+    if (widget.item.startTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("You must start the timer before stopping."),
+        ),
+      );
+      return;
+    }
+
+    if (widget.item.isFinished) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Stop Timer"),
+        content: const Text("Stop the timer if you confirm finish the work."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Stop"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        widget.item.isRunning = false;
+        widget.item.isFinished = true;
+        widget.item.endTime = DateTime.now();
+        widget.item.elapsedTime =
+            widget.item.endTime!.difference(widget.item.startTime!); // Duration
+      });
       _timer?.cancel();
-      _elapsed = Duration.zero;
-      _isRunning = false;
-      _startTime = null;
-      _endTime = null;
-    });
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -121,9 +215,8 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Provide title from WorkItem
     final title = widget.item.title;
-    final id = widget.item.dueDate; // or add explicit id to WorkItem if you want
+    final id = widget.item.projectId;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -132,10 +225,7 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            // Save edits and go back
-            _saveBackAndPop(); // ADD THIS
-          },
+          onPressed: _saveBackAndPop,
         ),
       ),
       body: Center(
@@ -154,50 +244,61 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    Text(
-                      "ID: $id",
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                    Text("ID: $id",
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // Job details box (unchanged)
-              Container(
+              // Project + customer info
+              _loadingProject
+                  ? const CircularProgressIndicator()
+                  : Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey, width: 1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Brake Pads (Front):",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("2 units, Part No. BP-TC-2018, Available in Warehouse Bay A-12"),
-                    Text("Brake Fluid:",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("1 liter, Part No. BF-DOT4, Available in Warehouse Bay B-5"),
-                    Text("Brake Rotors (Front):",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("2 units, Part No. BR-TC-2018, On Order (ETA: 2 hours)"),
+                    if (_projectData != null) ...[
+                      const Text("Description:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_projectData!['description'] ?? 'N/A'),
+                      const SizedBox(height: 12),
+                      const Text("Details:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_projectData!['details'] ?? 'N/A'),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_customerData != null) ...[
+                      const Text("Registration:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_customerData!['registration'] ?? 'N/A'),
+                      const SizedBox(height: 12),
+                      const Text("Vehicle Info:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_customerData!['vehicle_info'] ?? 'N/A'),
+                    ],
                   ],
                 ),
               ),
 
-              // ===== proof display & edit block (ADD THIS) =====
+              const SizedBox(height: 20),
+
+              // Proof display & edit
               if (_hasProof()) ...[
                 const SizedBox(height: 20),
                 Container(
@@ -205,18 +306,18 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                      ),
+                          color: Colors.black12,
+                          blurRadius: 6,
+                          offset: Offset(0, 3)),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Remark:", style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text("Remark:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       TextField(
                         controller: _remarkController,
                         decoration: const InputDecoration(
@@ -226,25 +327,22 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                         maxLines: 2,
                       ),
                       const SizedBox(height: 12),
-
-                      // Images row (horizontal scroll) - use Row inside SingleChildScrollView to avoid nested scroll issues
-                      if (uploadedImages.isNotEmpty) ...[
+                      if (uploadedImages.isNotEmpty)
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: uploadedImages.asMap().entries.map((entry) {
+                            children:
+                            uploadedImages.asMap().entries.map((entry) {
                               final index = entry.key;
                               final file = entry.value;
                               return Stack(
                                 children: [
                                   Container(
                                     margin: const EdgeInsets.all(8),
-                                    child: Image.file(
-                                      file,
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    ),
+                                    child: Image.file(file,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover),
                                   ),
                                   Positioned(
                                     top: 0,
@@ -261,7 +359,8 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                                           shape: BoxShape.circle,
                                         ),
                                         padding: const EdgeInsets.all(4),
-                                        child: const Icon(Icons.close, color: Colors.white, size: 18),
+                                        child: const Icon(Icons.close,
+                                            color: Colors.white, size: 18),
                                       ),
                                     ),
                                   ),
@@ -270,29 +369,37 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
                             }).toList(),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
               ],
-              // ===== end proof display & edit block =====
 
               const SizedBox(height: 16),
 
-              // Upload Proof button (ADD THIS)
+              // Upload Proof button
               ElevatedButton(
                 onPressed: () async {
-                  // open UploadPage, which returns images + remark map
+                  if (!widget.item.isFinished) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            "You must finish the job before uploading proof."),
+                      ),
+                    );
+                    return;
+                  }
+
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const UploadPage()),
+                    MaterialPageRoute(
+                        builder: (context) => const UploadPage()),
                   );
 
                   if (result != null) {
                     setState(() {
-                      // append selected images (so user can upload multiple times)
                       uploadedImages.addAll(List<File>.from(result["images"]));
-                      _remarkController.text = result["remark"] ?? _remarkController.text;
+                      _remarkController.text =
+                          result["remark"] ?? _remarkController.text;
                     });
                   }
                 },
@@ -302,52 +409,66 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
 
               const SizedBox(height: 10),
 
-              // Complete button → save to WorkItem and navigate to Digital Signoff (ADD THIS)
+              // Complete button → save + signoff
               ElevatedButton(
                 onPressed: () {
-                  if (uploadedImages.isEmpty && _remarkController.text.trim().isEmpty) {
+                  if (uploadedImages.isEmpty &&
+                      _remarkController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Please upload proof or add a remark before completing.")),
+                      const SnackBar(
+                          content: Text(
+                              "Please upload proof or add a remark before completing.")),
                     );
                     return;
                   }
 
-                  // Save into the WorkItem (so it's persisted in the list)
-                  _saveToItem(); // ADD THIS
+                  _saveToItem();
 
-                  // Navigate to digital sign-off page
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => DigitalSignoffPage(
-                        images: uploadedImages,
+                        proofImages: uploadedImages,
                         remark: _remarkController.text.trim(),
+                        projectId: widget.item.projectId,
+                        elapsedTime: widget.item.elapsedTime,
+                        startTime: widget.item.startTime, // Duration
                       ),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-                child: const Text("Complete", style: TextStyle(color: Colors.white)),
+                child: const Text("Complete",
+                    style: TextStyle(color: Colors.white)),
               ),
 
               const SizedBox(height: 20),
 
-              // Timer controls (kept below)
+              // Timer controls
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildControlButton(Icons.play_arrow, "START", _startTimer),
+                  _buildControlButton(Icons.play_arrow, "START",
+                      widget.item.isFinished ? null : _startTimer),
                   const SizedBox(width: 20),
-                  _buildControlButton(Icons.pause, "PAUSE", _pauseTimer),
+                  _buildControlButton(Icons.pause, "PAUSE",
+                      (widget.item.isFinished || !widget.item.isRunning)
+                          ? null
+                          : _pauseTimer),
                   const SizedBox(width: 20),
-                  _buildControlButton(Icons.stop, "STOP", _resetTimer),
+                  _buildControlButton(Icons.stop, "STOP",
+                      (widget.item.isFinished || widget.item.startTime == null)
+                          ? null
+                          : _stopTimer),
                 ],
               ),
 
               const SizedBox(height: 20),
-              Text("Start Time: ${_startTime != null ? _formatDateTime(_startTime!) : '--'}"),
-              Text("End Time: ${_endTime != null ? _formatDateTime(_endTime!) : '--'}"),
-              Text("Elapsed: ${_formatDuration(_elapsed)}"),
+              Text(
+                  "Start Time: ${widget.item.startTime != null ? _formatDateTime(widget.item.startTime!) : '--'}"),
+              Text(
+                  "End Time: ${widget.item.endTime != null ? _formatDateTime(widget.item.endTime!) : '--'}"),
+              Text("Elapsed: ${_formatDuration(widget.item.elapsedTime)}"), // formatted
               const SizedBox(height: 20),
             ],
           ),
@@ -357,16 +478,19 @@ class _WorkListDetailsScreenState extends State<WorkListDetailsScreen> {
   }
 
   bool _hasProof() {
-    return uploadedImages.isNotEmpty || _remarkController.text.trim().isNotEmpty;
+    return uploadedImages.isNotEmpty ||
+        _remarkController.text.trim().isNotEmpty;
   }
 
-  Widget _buildControlButton(IconData icon, String label, VoidCallback onPressed) {
+  Widget _buildControlButton(
+      IconData icon, String label, VoidCallback? onPressed) {
     return Column(
       children: [
         ElevatedButton(
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey[300],
+            backgroundColor:
+            onPressed == null ? Colors.grey[400] : Colors.grey[300],
             shape: const CircleBorder(),
             padding: const EdgeInsets.all(16),
           ),
